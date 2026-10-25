@@ -56,8 +56,8 @@ Haut ─▶ Cometa-Sensoren (Pico / Mini Wave) ──Funk──▶ WavePlus-Rece
 |---|---|---|
 | **Cometa EMG and Motion Tools** | Funktionstest, Sensorkonfiguration, Konfigurationsdatei (`.cfg`) | Liegt dem Messsystem bei oder kostenlos für Cometa-Kunden auf [cometasystems.com/emg-and-motion-tools](https://www.cometasystems.com/emg-and-motion-tools/) (Registrierung für Updates) |
 | **WavePlus-USB-Treiber** (`EmgMUsb`) | Windows erkennt den Receiver | Im Software-/Treiberpaket von Cometa; sonst beim Cometa-Support oder beim Laborverantwortlichen anfragen |
-| **Python ≥ 3.9 (64-Bit)** | Datenerfassung und Auswertung | [python.org/downloads/windows](https://www.python.org/downloads/windows/) |
-| Python-Paket **`wavex`** | Zugriff auf Receiver und Sensoren aus Python | `pip install wavex` ([PyPI](https://pypi.org/project/wavex/), Herausgeber: Cometa srl) |
+| **Python ≥ 3.11 (64-Bit)** | Datenerfassung und Auswertung | [python.org/downloads/windows](https://www.python.org/downloads/windows/) |
+| Python-Paket **`wavex`** | Zugriff auf Receiver und Sensoren aus Python | wird mit dem Projekt installiert (Schritt 5; [PyPI](https://pypi.org/project/wavex/), Herausgeber: Cometa srl) |
 | **Git** | Repo klonen | [git-scm.com](https://git-scm.com/download/win) |
 
 ---
@@ -129,10 +129,11 @@ Im Terminal (PowerShell) im Repo-Ordner:
 git clone https://github.com/EdenBernhard/EMG-Hand-Finger-Tracking.git
 cd EMG-Hand-Finger-Tracking
 
-python --version                 # muss 3.9 oder neuer sein, 64-Bit
+python --version                 # muss 3.11 oder neuer sein, 64-Bit
 python -m venv .venv
 .venv\Scripts\Activate.ps1
-pip install wavex numpy matplotlib
+pip install -e ".[dev]"          # Projekt inkl. wavex, numpy und pytest
+pip install matplotlib           # nur für das Testskript in Schritt 6
 ```
 
 > Falls PowerShell das Aktivieren blockiert: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` einmalig ausführen.
@@ -231,7 +232,7 @@ Hier lagen die meisten Probleme des Altsystems.
 | Treiber installiert, Gerät meldet Fehlercode | Windows 11 kann ältere Treiber über die **Speicherintegrität** blockieren (*Windows-Sicherheit → Gerätesicherheit → Kernisolierung*). Wird der Treiber dort als inkompatibel gelistet: bei Cometa nach einem neueren Treiber fragen. |
 | Letzter Ausweg bei Signaturproblemen | Signaturprüfung **für einen Neustart** deaktivieren: *Einstellungen → System → Wiederherstellung → Erweiterter Start → Problembehandlung → Erweiterte Optionen → Starteinstellungen → F7*. Danach ist sie automatisch wieder aktiv. |
 | Python findet kein Gerät | EMG and Motion Tools noch geöffnet? Schließen. Sensoren eingeschaltet und geladen? Konfigurationspfad korrekt? |
-| `pip install wavex` schlägt fehl | Python-Version ≥ 3.9 und 64-Bit prüfen (`python -c "import struct; print(struct.calcsize('P')*8)"` → `64`). |
+| `pip install -e ".[dev]"` schlägt fehl | Python-Version ≥ 3.11 und 64-Bit prüfen (`python -c "import struct; print(struct.calcsize('P')*8)"` → `64`). |
 
 ---
 
@@ -252,8 +253,9 @@ Treiber, SDK-Bibliotheken (`Waveplus.DaqSys.dll`, `CyUSB.dll` usw.) und die Come
 ## Rohdaten aufnehmen (Cometa Wave Plus)
 
 ### Aufnahme
+Voraussetzung: Einrichtung bis Schritt 5.
+
 ```powershell
-pip install -e .[dev]
 python -m emg_tracking.acquisition.cli --duration 10 --name test
 ```
 

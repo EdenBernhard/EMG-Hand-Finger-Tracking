@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+
+# Proprietäres Cometa-SDK (siehe lib/README.md)
+lib/cometa/
+
+# Aufnahmen
+data/

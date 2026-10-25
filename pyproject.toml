@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "emg-tracking"
+version = "0.1.0"
+description = "EMG-Erfassung (Cometa Wave Plus) und ML-Pipeline für Hand- und Fingerbewegungen"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.23",
+    "wavex>=1.3.5,<2",  # offizielles Cometa-SDK, bringt die nativen DLLs mit (nur Windows)
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

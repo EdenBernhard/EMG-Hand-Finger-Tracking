@@ -4,6 +4,20 @@ Studienarbeit (DHBW Karlsruhe, Informatik): EMG-Signale auslesen, Hand- und Fing
 
 Dieses Repo ist ein Neubau in Python. Die Vorgänger-Repos waren in C#/Java (EMG_Analyse, SST-EMG-Sensor).
 
+## Architektur
+Ziel: Hand- und Fingerbewegungen anhand der gemessenen EMG-Werte per ML erkennen und vorhersagen. Die Pipeline besteht aus vier Stufen, in dieser Reihenfolge:
+
+1. **Erfassung** – Rohdaten vom Sensor auslesen (aktuell `src/emg_tracking/acquisition/`)
+2. **Vorverarbeitung** – Daten bereinigen, filtern und normalisieren
+3. **ML** – Merkmale/Modelle, Training, Evaluation
+4. **Ausgabe** – Vorhersage und Übersetzung in Aktionen (Computeraktionen, Roboterhand)
+
+Regeln für jeden Code, den Claude schreibt oder ändert:
+- **Single Responsibility:** Jede Klasse und jede Datei hat genau eine Aufgabe. Funktionalität wird sinnvoll auf Klassen/Dateien aufgeteilt, statt große Sammelmodule zu bauen.
+- **Stufen sauber trennen:** Jeder Code gehört zu genau einer Stufe. Eine Stufe hängt nur von der vorherigen ab (über klar definierte Datenstrukturen), nie umgekehrt. So vermischt z. B. die Erfassung keine Filterung und das ML keine Hardwarezugriffe.
+- **Wenige Abhängigkeiten:** Neue Pakete nur, wenn sie klar nötig sind. Die Standardbibliothek wird bevorzugt, und Abhängigkeiten bleiben klein und übersichtlich.
+- Generierten Code vor dem Abschluss immer gegen diese Regeln prüfen.
+
 ## Leitlinien
 - **Datenqualität & Reproduzierbarkeit zuerst:** feste Seeds, versionierte Konfiguration (Abtastrate, Filter, Fensterung), keine Magic Numbers im Code.
 - **Messbarkeit:** Jede Pipeline-Stufe bekommt Tests bzw. Metriken. Ergebnisse müssen über mehrere Probanden vergleichbar sein.

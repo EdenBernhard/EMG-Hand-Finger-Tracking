@@ -1,0 +1,14 @@
+# Konfiguration der Rohdaten-Erfassung (Cometa Wave Plus über das Paket wavex).
+# Diese Datei ist versioniert: Jede Aufnahme speichert eine Kopie davon neben der CSV.
+# Die Abtastrate ist fest 2000 Hz (EmgAcqPType.Emg_2kHz_Acc_142Hz ist die einzige
+# EMG-Betriebsart für WavePlus-Receiver) und daher keine Option.
+
+[capture]
+# Sensor-IDs wie in der Cometa-Software (1-basiert). Altsystem: 1, 2, 4.
+sensor_ids = [1, 2, 4]
+# Takt der DataAvailable-Events; SDK erlaubt 10, 25, 50, 100.
+event_period_ms = 10
+
+[output]
+# Zielordner für Aufnahmen (nicht versioniert, siehe .gitignore).
+data_dir = "data/raw"

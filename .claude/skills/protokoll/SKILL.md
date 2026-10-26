@@ -3,6 +3,7 @@ name: protokoll
 description: Schreibt eine Session-Notiz für das Forschungslogbuch der Studienarbeit nach docs/sessions/ und committet sie. Verwenden bei /protokoll oder wenn Eden die aktuelle Arbeitssession dokumentieren möchte.
 argument-hint: "[optionale Erkenntnisse/Notizen zur Session]"
 disable-model-invocation: true
+model: sonnet
 ---
 
 # /protokoll – Session-Notiz für das Forschungslogbuch

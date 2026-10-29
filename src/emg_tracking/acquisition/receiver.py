@@ -12,6 +12,7 @@ from types import ModuleType
 from typing import Any, Sequence
 
 from emg_tracking.acquisition.raw_block import RawBlock
+from emg_tracking.acquisition.startup_gate import StartupGate
 
 SAMPLING_RATE_HZ = 2000  # einzige EMG-Rate für WavePlus (EmgAcqPType.Emg_2kHz_Acc_142Hz)
 
@@ -21,7 +22,8 @@ class CometaReceiver:
 
     ``sdk`` ist das Modul ``wavex`` (in Tests eine Nachbildung). Das SDK ruft den Callback
     aus einem eigenen Thread auf; ``EmgSamples`` zeigt dabei direkt in den nativen Puffer
-    und muss sofort kopiert werden.
+    und muss sofort kopiert werden. Die Anlaufphase ohne echte Messwerte wird über
+    ``StartupGate`` verworfen; ``sample_index`` 0 ist der erste echte Messwert.
     """
 
     def __init__(self, sdk: ModuleType, sensor_ids: Sequence[int], event_period_ms: int) -> None:
@@ -38,6 +40,7 @@ class CometaReceiver:
         self._period = periods[f"ms_{event_period_ms}"]
         self._daq: Any = None
         self._sample_counter = 0
+        self.startup_gate = StartupGate()
 
     def _on_data(self, e: Any) -> None:
         try:
@@ -48,11 +51,18 @@ class CometaReceiver:
             if max(self._rows) >= emg.shape[0]:
                 raise IndexError(f"Sensor {max(self.sensor_ids)} nicht im Event ({emg.shape[0]} Kanäle)")
             samples = emg[self._rows, :].copy()  # eigene Kopie, der native Puffer wird wiederverwendet
+            samples = self.startup_gate.admit(samples)
+            if samples.shape[1] == 0:
+                return
             block = RawBlock(self._sample_counter, host_time_ns, self.sensor_ids, samples, int(e.UsbLostPackets))
             self._sample_counter += block.n_samples
             self.blocks.put(block)
         except BaseException as exc:  # Ausnahmen im SDK-Thread sonst stillschweigend verloren
             self.errors.put(exc)
+
+    def silent_sensor_ids(self) -> list[int]:
+        """Sensoren, die seit dem Start noch keinen echten Messwert geliefert haben."""
+        return [self.sensor_ids[row] for row in self.startup_gate.silent_channels()]
 
     def start(self) -> None:
         daq = self._sdk.DaqSystem()

@@ -8,6 +8,10 @@
 sensor_ids = [1, 2, 4]
 # Takt der DataAvailable-Events; SDK erlaubt 10, 25, 50, 100.
 event_period_ms = 10
+# Nach dem Start senden die Sensoren erst nach einer Anlaufphase (gemessen 2026-10-29: ca. 5 s);
+# bis dahin wird nichts gespeichert. Kommen bis zu diesem Zeitpunkt keine echten Messwerte,
+# bricht die Aufnahme mit einer Fehlermeldung ab.
+startup_timeout_s = 15
 
 [output]
 # Zielordner für Aufnahmen (nicht versioniert, siehe .gitignore).

@@ -18,16 +18,20 @@ from emg_tracking.acquisition.receiver import SAMPLING_RATE_HZ, CometaReceiver
 from emg_tracking.config import DEFAULT_CONFIG, load_config
 
 QUEUE_POLL_S = 0.1
-# wavex meldet ein fehlendes Gerät nicht zuverlässig (GetDeviceState liefert immer None),
-# daher gilt: kommen nach dem Start so lange keine Daten, stimmt etwas nicht.
-NO_DATA_TIMEOUT_S = 3.0
 
 
-def record(receiver: CometaReceiver, writer: RawCsvWriter, duration_s: float | None) -> int:
-    """Nimmt bis ``duration_s`` (None: bis Strg+C) auf und gibt die Anzahl Samples zurück."""
+def record(
+    receiver: CometaReceiver, writer: RawCsvWriter, duration_s: float | None, startup_timeout_s: float
+) -> int:
+    """Nimmt ``duration_s`` (None: bis Strg+C) ab dem ersten echten Messwert auf.
+
+    wavex meldet ein fehlendes Gerät nicht zuverlässig (GetDeviceState liefert immer None),
+    daher gilt: Kommen nach ``startup_timeout_s`` keine echten Messwerte, stimmt etwas nicht.
+    Gibt die Anzahl gespeicherter Samples zurück.
+    """
     n = 0
     t_start = time.monotonic()
-    t_end = None if duration_s is None else t_start + duration_s
+    t_end = None
     with receiver:
         try:
             while t_end is None or time.monotonic() < t_end:
@@ -36,12 +40,18 @@ def record(receiver: CometaReceiver, writer: RawCsvWriter, duration_s: float | N
                 try:
                     block = receiver.blocks.get(timeout=QUEUE_POLL_S)
                 except queue.Empty:
-                    if n == 0 and time.monotonic() - t_start > NO_DATA_TIMEOUT_S:
+                    if n == 0 and time.monotonic() - t_start > startup_timeout_s:
+                        silent = receiver.silent_sensor_ids()
+                        detail = f" Ohne Messwerte: Sensor {silent}." if silent else ""
                         raise RuntimeError(
-                            f"Keine Daten nach {NO_DATA_TIMEOUT_S} s. Receiver per USB verbunden, "
-                            "Treiber installiert, Sensoren eingeschaltet?"
+                            f"Keine Messwerte nach {startup_timeout_s} s.{detail} Receiver per USB verbunden, "
+                            "Treiber installiert, Sensoren eingeschaltet, sensor_ids korrekt?"
                         )
                     continue
+                if n == 0:  # Dauer zählt ab dem ersten echten Messwert, nicht ab dem Start
+                    print("Sensoren senden, Aufnahme läuft ... (Strg+C zum Beenden)")
+                    if duration_s is not None:
+                        t_end = time.monotonic() + duration_s
                 writer.write(block)
                 n += block.n_samples
         except KeyboardInterrupt:
@@ -80,8 +90,8 @@ def main(argv: list[str] | None = None) -> None:
     receiver = CometaReceiver(wavex, cfg.sensor_ids, cfg.event_period_ms)
     try:
         with open(csv_path, "w", newline="", encoding="utf-8") as f:
-            print("Aufnahme läuft ... (Strg+C zum Beenden)")
-            n = record(receiver, RawCsvWriter(f, cfg.sensor_ids), args.duration)
+            print(f"Warte, bis die Sensoren senden (höchstens {cfg.startup_timeout_s:g} s) ...")
+            n = record(receiver, RawCsvWriter(f, cfg.sensor_ids), args.duration, cfg.startup_timeout_s)
     except BaseException:
         if n_rows_written(csv_path) == 0:  # keine halbleeren Aufnahmen im Datenordner lassen
             csv_path.unlink(missing_ok=True)

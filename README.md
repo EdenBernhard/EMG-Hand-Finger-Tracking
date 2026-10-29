@@ -3,7 +3,7 @@ Erfassung, Aufbereitung und Klassifikation von Oberflächen-EMG-Signalen des Unt
 
 Ziele: saubere, reproduzierbare Rohdaten, vergleichbare Messungen über mehrere Probanden und ML-fertig aufbereitete Datensätze.
 
-> **Status:** im Aufbau. Diese README beschreibt zunächst die Einrichtung des Messsystems.
+> **Status:** im Aufbau. Diese README beschreibt, wie das Messsystem eingerichtet und wie mit dem Repo gearbeitet wird. Das weitere Vorgehen steht im [Fahrplan](docs/ROADMAP.md).
 
 ---
 
@@ -12,7 +12,7 @@ Ziele: saubere, reproduzierbare Rohdaten, vergleichbare Messungen über mehrere 
 - [Wie die Daten fließen](#wie-die-daten-fließen)
 - [Was du brauchst](#was-du-brauchst)
 - [Schritt für Schritt zur ersten Messung](#schritt-für-schritt-zur-ersten-messung)
-- [Fahrplan – was noch fehlt](#fahrplan--was-noch-fehlt)
+- [Rohdaten aufnehmen](#rohdaten-aufnehmen)
 - [Fehlerbehebung](#fehlerbehebung)
 - [Hinweise zu Herstellerdateien](#hinweise-zu-herstellerdateien)
 - [Quellen](#quellen)
@@ -46,8 +46,9 @@ Haut ─▶ Cometa-Sensoren (Pico / Mini Wave) ──Funk──▶ WavePlus-Rece
 | Cometa **WavePlus-Receiver** inkl. USB-Kabel | Originalkabel verwenden | Messsystem des Labors / Betreuer |
 | Cometa-**EMG-Sensoren** (Pico oder Mini Wave) | Studienarbeit: 3 Sensoren am Unterarm | Messsystem des Labors |
 | **Ladestation** der Sensoren | vor der Messung 2–3 h laden | Messsystem des Labors |
-| **Einweg-Klebeelektroden** | Verbrauchsmaterial | Labor / Medizinbedarf |
-| Alkoholtupfer, ggf. Einwegrasierer | Hautvorbereitung | Apotheke / Drogerie |
+| **Einweg-Klebeelektroden** (Ag/AgCl, vorgegelt) | Verbrauchsmaterial; empfohlen: Ambu BlueSensor N (`N-00-S`), von Cometa mitgeliefert | Labor / Medizinbedarf |
+| Einweg-Klebepads für Mini-Wave-Gehäuse | nur bei Mini Wave, nicht bei Pico | Messsystem des Labors / Cometa |
+| Alkoholtupfer, Einwegrasierer, ggf. Abrasivgel | Hautvorbereitung (Schritt 7.4) | Apotheke / Drogerie |
 | **Windows-PC mit x64-Prozessor** (Intel/AMD) | kein Mac, kein Linux, kein Windows on ARM (Snapdragon), kein Raspberry Pi | – |
 
 ### Software
@@ -122,7 +123,7 @@ pnputil /add-driver "C:\Pfad\zum\Treiberordner\EmgMUsb.inf" /install
 1. Sensoren einschalten, EMG and Motion Tools starten.
 2. Die Software muss den Receiver und die Sensoren anzeigen. Notiere, **auf welchem Kanal** welcher Sensor liegt.
 3. Abtastrate auf **2000 Hz** stellen und die benötigten Sensoren aktivieren.
-4. Die Konfiguration als **`.cfg`-Datei** speichern, z. B. unter `config\3sensoren_2000hz.cfg` im Repo. Python lädt später genau diese Datei – so ist jede Messung mit derselben Konfiguration reproduzierbar.
+4. Die Konfiguration als **`.cfg`-Datei** unter `config\EMGHandMotionToolConfig.cfg` im Repo speichern. Diese Datei braucht nur das Testskript in Schritt 6. Für echte Aufnahmen stehen die Sensoren in `config/acquisition.toml` (siehe [Rohdaten aufnehmen](#rohdaten-aufnehmen)). Die dort eingetragenen `sensor_ids` müssen zu den hier notierten Kanälen passen.
 5. EMG and Motion Tools **schließen**, bevor Python auf den Receiver zugreift (nur ein Programm kann das Gerät gleichzeitig nutzen).
 
 ### Schritt 5 – Python-Umgebung einrichten
@@ -144,13 +145,19 @@ pip install matplotlib           # nur für das Testskript in Schritt 6
 
 ### Schritt 6 – Erster Datenabruf
 
-Testskript, angelehnt an das Beispiel aus der [`wavex`-Dokumentation](https://pypi.org/project/wavex/) (mit der Hardware dieses Projekts noch nicht getestet):
+Testskript, angelehnt an das Beispiel, das im `wavex`-Paket mitgeliefert wird (`wavex/test.py`). Mit dieser Hardware getestet am 29.10.2026. Als `test_aufnahme.py` im Repo-Ordner speichern und mit `python test_aufnahme.py` starten.
 
 ```python
 import time
-import numpy as np
+from pathlib import Path
+
 import matplotlib.pyplot as plt
+import numpy as np
 import wavex
+
+CONFIG_FILE = Path(__file__).resolve().parent / "config" / "EMGHandMotionToolConfig.cfg"  # aus Schritt 4
+WARMUP_S = 7      # Anlaufzeit der Sensoren, siehe Hinweis unten
+DURATION_S = 5
 
 buffer = []
 
@@ -159,16 +166,26 @@ def on_data(args):
     buffer.append(args.EmgSamples.copy())
 
 daq = wavex.DaqSystem()
-enabled = daq.LoadConfiguration(r"config\3sensoren_2000hz.cfg")   # in Schritt 4 gespeichert
-print("Aktivierte Kanäle:", enabled)
+try:
+    # Reihenfolge wie im Herstellerbeispiel: erst Erfassung konfigurieren, dann .cfg laden
+    capture_cfg = wavex.CaptureConfiguration()
+    capture_cfg.set_emg_acq_p(wavex.enums.EmgAcqPType.Emg_2kHz_Acc_142Hz)  # WavePlus: EMG mit 2000 Hz
+    daq.OnDataAvailable(on_data)
+    daq.ConfigureCapture(capture_cfg)
+    enabled = daq.LoadConfiguration(str(CONFIG_FILE))
+    print("Aktivierte EMG-Kanäle:", [i + 1 for i, on in enumerate(enabled["EnabledEfaChannels"]) if on])
 
-daq.OnDataAvailable(on_data)
-daq.StartCapturing(wavex.enums.DataAvailableEventPeriod.ms_100)
-time.sleep(5)                      # 5 s aufnehmen – dabei Finger bewegen
-daq.StopCapturing()
+    daq.StartCapturing(wavex.enums.DataAvailableEventPeriod.ms_100)
+    time.sleep(WARMUP_S)           # Anlaufphase abwarten und verwerfen
+    buffer.clear()
+    print(f"Aufnahme läuft {DURATION_S} s – Finger bewegen ...")
+    time.sleep(DURATION_S)
+    daq.StopCapturing()
+finally:
+    daq.close()                    # Gerät freigeben, auch bei Fehlern
 
 emg = np.concatenate(buffer, axis=1)   # [Kanal, Sample] in µV
-print("Form:", emg.shape)              # bei 2000 Hz und 5 s ≈ 10 000 Samples pro Kanal
+print("Form:", emg.shape)              # bei 2000 Hz und 5 s ca. 10 000 Samples pro Kanal
 np.save("test_aufnahme.npy", emg)
 
 plt.plot(emg.T)
@@ -179,50 +196,103 @@ plt.show()
 
 Wenn ein Signal erscheint, das bei Fingerbewegungen deutlich ausschlägt, funktioniert die gesamte Kette.
 
-> Statt einer `.cfg`-Datei lässt sich die Erfassung laut `wavex`-Dokumentation auch direkt im Code konfigurieren (Methoden mit Suffix `_p` für WavePlus, z. B. `set_emg_acq_p`). Der Treiber aus Schritt 3 bleibt in jedem Fall nötig – ihn braucht Windows, unabhängig von der Bibliothek.
+> **Anlaufphase:** Nach `StartCapturing` senden die Sensoren erst nach etwa 5 s (gemessen am 29.10.2026), und nicht alle gleichzeitig. Bis dahin liefert der Receiver pro Kanal nur einen konstanten Wert. Ohne Wartezeit sieht man deshalb nur flache Linien.
+>
+> **`ConfigureCapture` mit `set_emg_acq_p`** ist nötig, weil der Receiver ein WavePlus ist (Suffix `_p`). Mit dem Wave-X-Modus (`set_emg_acq_x`) kommen keine Daten.
 
-### Schritt 7 – Sensoren anbringen (für echte Messungen)
+### Schritt 7 – Vorbereitung vor dem Anlegen der Elektroden
 
-1. Haut an den Messstellen mit Alkohol reinigen, bei Bedarf rasieren.
-2. Elektroden über dem Muskelbauch, **parallel zum Faserverlauf** kleben (Unterarm: Fingerbeuger und -strecker).
-3. Positionen markieren oder eine Schablone verwenden (in der Studienarbeit: markierter Strumpf), damit sie bei jeder Sitzung und jedem Probanden gleich sind.
-4. Kabel bzw. Sensoren so fixieren, dass sie sich bei Bewegung nicht verschieben (Bewegungsartefakte).
+Der Kontakt zwischen Haut und Elektrode entscheidet über die Datenqualität. Ein schlechter Kontakt lässt sich später durch keinen Filter retten. Diese Schritte deshalb **vor jeder Sitzung** vollständig durchgehen und das Ergebnis im Sitzungsprotokoll festhalten.
+
+**7.1 Material prüfen**
+
+- [ ] **Elektroden:** frische, vorgegelte Ag/AgCl-Einwegelektroden. Cometa liefert **Ambu BlueSensor N** (`N-00-S`, ca. 44,8 × 22 mm) mit. Wegen ihrer schmalen Form passen sie gut an den Unterarm. Große EKG-Elektroden (z. B. BlueSensor R, VL) sind ungeeignet, weil sie Signale benachbarter Muskeln mitmessen (Übersprechen).
+- [ ] **Haltbarkeitsdatum** prüfen. Angebrochene Beutel wieder verschließen. Ausgetrocknetes Gel ist die häufigste Ursache für einen fehlschlagenden Impedanz-Check.
+- [ ] Elektroden **nie wiederverwenden**, auch nicht innerhalb derselben Sitzung nach dem Umkleben.
+- [ ] Bei **Mini Wave**: die mitgelieferten Einweg-Klebepads für das Sensorgehäuse bereitlegen (siehe 8.3). Bei **Pico** werden keine Pads benötigt.
+- [ ] Alkoholtupfer, Einwegrasierer, ggf. Abrasivgel oder ein trockenes, raues Tuch, Hautmarker bzw. Schablone (Strumpf).
+
+**7.2 Sensoren und Receiver vorbereiten**
+
+- [ ] Sensoren vollständig geladen: Ladestation-LED **grün** (8-h-Ladezyklus beendet), Sensor-LED **orange aus**.
+- [ ] Sensoren auf Beschädigungen prüfen, besonders die Kabel und Druckknöpfe der Mini Wave.
+- [ ] Receiver einschalten (Schalter hinten). Die erste LED links auf der Vorderseite muss leuchten.
+- [ ] Notieren, **welcher Sensor (Kanalnummer auf dem Gehäuse)** an welche Position kommt. Bei jeder Sitzung und jedem Probanden dieselbe Zuordnung verwenden, auch beim Sensortyp: Pico (feste Druckknöpfe) und Mini Wave (Kabel) messen wegen des unterschiedlichen Elektrodenabstands nicht identisch.
+
+**7.3 Messumgebung**
+
+- [ ] Receiver **mindestens 1,5 m** vom Probanden entfernt aufstellen. Receiver und Proband nie gleichzeitig berühren.
+- [ ] Smartphones und andere Funkgeräte **mindestens 30 cm** von Sensoren und Receiver fernhalten. Nicht direkt neben anderen elektromedizinischen Geräten messen.
+- [ ] Netzbrummen (50 Hz) verringern: Abstand zu Steckdosenleisten und Netzkabeln. Den Laptop möglichst im Akkubetrieb laufen lassen.
+- [ ] Der Raum sollte normal temperiert sein (Betriebsbereich 10–35 °C). Kalte Haut erhöht die Impedanz, Schweiß verschlechtert die Haftung.
+
+**7.4 Proband und Haut**
+
+- [ ] Fragen, ob eine **Unverträglichkeit gegen Elektrodengel oder Kleber** bekannt ist.
+- [ ] Die Haut an den Messstellen muss **unverletzt** sein. Nicht auf Wunden, Ekzemen oder gereizter Haut messen.
+- [ ] Der Proband sitzt bequem. Der Unterarm liegt entspannt auf, die Handfläche zeigt in die Position, die auch während der Messung gilt.
+- [ ] Messstellen mit Schablone oder Strumpf anzeichnen (siehe Schritt 8.1).
+- [ ] **Hautvorbereitung**, in dieser Reihenfolge:
+  1. Haare an den Messstellen **rasieren**.
+  2. Haut **leicht anrauen**, z. B. mit Abrasivgel oder einigen Strichen mit einem trockenen, rauen Tuch. Das entfernt abgestorbene Hautschüppchen und senkt die Hautimpedanz deutlich.
+  3. Mit **Alkohol** reinigen (Fett, Creme, Schweiß).
+  4. Haut **vollständig trocknen lassen**. Auf feuchter Haut haften die Elektroden schlecht.
+
+### Schritt 8 – Sensoren anbringen (für echte Messungen)
+
+**8.1 Positionen**
+
+1. Elektroden über dem Muskelbauch, **parallel zum Faserverlauf** kleben (Unterarm: Fingerbeuger und -strecker). Laut Cometa liegen sie in Längsrichtung **mittig zwischen Innervationszone und distaler Sehne**, also nicht direkt auf der Innervationszone und nicht auf der Sehne. In Querrichtung halten sie Abstand zum Rand des Muskels, damit Nachbarmuskeln möglichst wenig einstreuen.
+2. Elektrodenabstand etwa **20 mm** (Mitte zu Mitte, SENIAM-Empfehlung). Beim Pico ist er durch die festen Druckknöpfe vorgegeben.
+3. Positionen markieren oder eine Schablone verwenden (in der Studienarbeit: markierter Strumpf), damit sie bei jeder Sitzung und jedem Probanden gleich sind. Am besten zusätzlich ein Foto der Platzierung ins Sitzungsprotokoll legen.
+
+**8.2 Pico**
+
+1. Elektroden auf die Druckknöpfe des Pico klicken (fest einrasten lassen) und den Pico mit den Elektroden auf die Haut kleben.
+2. Die Elektroden halten den Sensor, zusätzliche Klebepads sind nicht nötig. Die Elektroden sollten aber vollflächig aufliegen: Eine Schablone oder ein Strumpf darf den Sensor andrücken, ihn aber nicht wegziehen oder kippen.
+
+**8.3 Mini Wave**
+
+Reihenfolge laut Cometa:
+
+1. Elektroden auf die vorbereitete Haut kleben.
+2. Einweg-Klebepad erst auf das Sensorgehäuse, dann auf die Haut kleben. Das Gehäuse darf **nie direkt auf der Haut** liegen. Pads nicht wiederverwenden, beim Umsetzen ein neues Pad nehmen.
+3. Gehäuse so platzieren, dass die Kabel die Elektroden **ohne Zug** erreichen. Nahe am Handgelenk oder Ellenbogen prüfen, ob die Bewegung die Kabel spannt.
+4. Erst danach die Druckknöpfe mit den Elektroden verbinden.
+
+> Zieht ein Kabel an der Elektrode, verliert diese teilweise den Kontakt. Typisches Symptom: Das Signal wird besser, wenn man den Sensor andrückt.
+
+**8.4 Kurz warten, dann prüfen**
+
+1. Nach dem Aufkleben **ca. 5 Minuten warten**. In dieser Zeit zieht das Gel in die Haut ein und die Impedanz sinkt (Erfahrungswert, keine Herstellerangabe).
+2. Sensor-LEDs prüfen: grün = verbunden. Am Receiver leuchtet pro verbundenem Kanal eine LED.
+3. In EMG and Motion Tools den **Impedanz-Check** ausführen (Konfiguration → EMG → *Check Impedance*, Grenze < 100 kΩ, nur WavePlus) und das Ergebnis pro Kanal ins Protokoll schreiben.
+4. **Ruhesignal** prüfen, z. B. in der Biofeedback-Ansicht (Spalte *BFB* in der EMG-Konfiguration aktivieren): Bei entspanntem Arm liegt der Balken nahe 0 %. Beim Anspannen schlägt er deutlich aus.
+5. Erst wenn alle Kanäle diese Prüfung bestehen, EMG and Motion Tools schließen und die Aufnahme starten. Sonst: siehe [Fehlerbehebung](#fehlerbehebung).
+
+> **Hintergrund:** Laut Datenblatt verarbeiten die Sensoren Eingangssignale bis **±3 mV**, mit 16 Bit und 2000 Hz, und haben einen **Hardware-Bandpass 1. Ordnung (10–500 Hz bzw. 10–1000 Hz)**. Ruhewerte nahe ±3000 µV bedeuten deshalb, dass der Kanal übersteuert ist. Das passiert fast immer, weil der Elektrodenkontakt fehlt, nicht wegen eines Muskelsignals. Der Hardwarefilter ersetzt außerdem nicht die Software-Filterung in Stufe 3, weil er nur flach abfällt (6 dB/Oktave).
 
 ---
 
-## Fahrplan – was noch fehlt
+## Rohdaten aufnehmen
 
-Mit `wavex` entfällt die gesamte C#-/SDK-Schicht der ursprünglichen Studienarbeit (C#-Programm, TCP-Übertragung, SDK-DLLs). Die offenen Punkte, in sinnvoller Reihenfolge:
+Voraussetzung: Einrichtung bis [Schritt 5](#schritt-5--python-umgebung-einrichten), für echte Messungen zusätzlich Schritt 7 und 8.
 
-### Stufe 1 – Bis zur ersten Messung
+```powershell
+python -m emg_tracking.acquisition.cli --duration 10 --name test
+```
 
-- [ ] Treiber installiert, Receiver erscheint als „EMG and Motion Device“ ([Schritt 3](#schritt-3--treiber-installieren))
-- [ ] Sensoren in EMG and Motion Tools erkannt, `.cfg` gespeichert (2000 Hz, eigene Kanäle)
-- [ ] Testskript aus [Schritt 6](#schritt-6--erster-datenabruf) läuft und zeigt bei Fingerbewegung einen klaren Ausschlag
+Sensoren (`sensor_ids`), Event-Periode und maximale Anlaufzeit (`startup_timeout_s`) stehen in `config/acquisition.toml`; die Abtastrate ist fest 2000 Hz. Die `.cfg` aus Schritt 4 wird dafür nicht gebraucht.
+Jede Aufnahme landet in `data/raw/` als CSV plus Kopie der verwendeten Konfiguration.
 
-Erst wenn diese Stufe steht, lohnt sich der Rest – hier zeigt sich, ob `wavex` mit der vorhandenen Hardware zuverlässig läuft.
+Nach dem Start wartet die CLI, bis **alle** gewählten Sensoren echte Messwerte liefern (Anlaufphase, ca. 5 s). Erst ab dann wird gespeichert, und erst ab dann zählt `--duration`. Sendet ein Sensor bis `startup_timeout_s` nicht, bricht die Aufnahme ab und nennt die betroffenen Sensoren.
 
-### Stufe 2 – Saubere Datenerfassung
-
-Hier lagen die meisten Probleme des Altsystems.
-
-- [ ] **Aufnahmeskript mit Protokoll:** Proband-ID, Sitzung, Sensorplatzierung, Bewegung und Wiederholung werden bei jeder Aufnahme mitgeschrieben.
-- [ ] **Speicherformat:** Rohdaten in µV plus Metadaten in einer Datei (z. B. HDF5 oder Parquet). Nur Rohdaten speichern, alles Weitere später berechnen – so lässt sich die Vorverarbeitung ändern, ohne neu zu messen.
-- [ ] **Labels:** Zeitpunkte, wann welche Bewegung ausgeführt wurde, z. B. über ein Skript, das die Bewegung ansagt („Ringfinger beugen … jetzt“) und den Zeitpunkt speichert. Ohne saubere Labels lernt kein Modell etwas Verlässliches.
-- [ ] **Qualitätsprüfung pro Aufnahme:** Paketverluste (Lücken in `ScanNumber`/Zeitstempeln), Rauschen in Ruhe, Übersteuerung, 50-Hz-Netzbrummen.
-
-### Stufe 3 – Verarbeitung und Klassifikation
-
-- [ ] **Vorverarbeitung:** Bandpass 20–450 Hz und Notch-Filter 50 Hz (fehlten im Altsystem komplett).
-- [ ] **Segmentierung über gleitende Fenster** (z. B. 200 ms, 50 % Überlappung) statt der fehleranfälligen Zyklus-Erkennung.
-- [ ] **Standardmerkmale:** MAV, RMS, Wellenformlänge, Zero Crossings, Slope Sign Changes, Medianfrequenz in Hz – mit getesteten Bibliotheken (`numpy`, `scipy`) statt Eigenbau.
-- [ ] **Evaluation:** Trennung von Training und Test nach **Sitzung** und nach **Proband** (Leave-one-subject-out), Konfusionsmatrix, F1 pro Klasse, feste Zufalls-Seeds.
-
-### Stufe 4 – Studiendesign
-
-- [ ] **Messprotokoll:** Bewegungen, Wiederholungen, Pausen, Kraftniveau, Sensorpositionen mit Schablone.
-- [ ] **Anzahl der Probanden** festlegen und ob die Sensoren zwischen Sitzungen bewusst neu angelegt werden – das ist entscheidend für die Generalisierung auf neue Personen.
-- [ ] Mit dem Betreuer klären, ob für Messungen an anderen Personen eine **Einverständniserklärung** nötig ist.
+| Spalte | Bedeutung |
+|---|---|
+| `sample_index` | fortlaufend ab 0 (= erster echter Messwert nach der Anlaufphase); Zeit in s = Index / 2000 |
+| `host_time_ns` | PC-Zeit beim Eintreffen des SDK-Events (gleich für alle Zeilen eines Events) |
+| `sensor_<id>_uV` | Rohwert in µV, unverändert vom SDK, ohne Filter |
+| `usb_lost_packets` | vom SDK gemeldete USB-Paketverluste des Events |
 
 ---
 
@@ -236,7 +306,12 @@ Hier lagen die meisten Probleme des Altsystems.
 | Windows meldet eine ungültige Signatur | Der Katalog ist von Microsoft signiert, also ist meist eine Datei verändert oder unvollständig (z. B. durch Git oder einen abgebrochenen Download). Originalpaket neu holen, **nicht** die Signaturprüfung abschalten. |
 | Treiber installiert, Gerät meldet Fehlercode | Windows 11 kann ältere Treiber über die **Speicherintegrität** blockieren (*Windows-Sicherheit → Gerätesicherheit → Kernisolierung*). Wird der Treiber dort als inkompatibel gelistet: bei Cometa nach einem neueren Treiber fragen. |
 | Letzter Ausweg bei Signaturproblemen | Signaturprüfung **für einen Neustart** deaktivieren: *Einstellungen → System → Wiederherstellung → Erweiterter Start → Problembehandlung → Erweiterte Optionen → Starteinstellungen → F7*. Danach ist sie automatisch wieder aktiv. |
+| **Impedanz-Check schlägt fehl** / Ruhesignal sehr hoch (Biofeedback-Balken > 30 % in Ruhe, Werte nahe ±3000 µV) | Schlechter Kontakt zwischen Haut und Elektrode. Der Reihe nach prüfen: frische Elektroden (Haltbarkeit, Gel nicht ausgetrocknet), Hautvorbereitung nach Schritt 7.4, ca. 5 min warten, Druckknöpfe fest eingerastet, kein Zug an Kabeln oder Gehäuse (Schritt 8.3). Wird das Signal besser, wenn man den Sensor andrückt, ist es fast sicher ein Kontaktproblem. |
+| Problem bleibt bei einem Kanal trotz neuer Elektroden | Sensor mit einem funktionierenden Sensor **an derselben Stelle** tauschen. Wandert der Fehler mit dem Sensor mit, liegt es an der Hardware (Kabel, Druckknopf, Akku, LED blinkt grün = Akku schwach). Bleibt er an der Stelle, liegt es an Haut oder Position. |
+| Starkes 50-Hz-Brummen | Netzteil vom Laptop abziehen, Abstand zu Steckdosenleisten und Netzkabeln, Receiver ≥ 1,5 m vom Probanden (Schritt 7.3). Brummen schlägt besonders bei schlechtem Elektrodenkontakt durch. |
 | Python findet kein Gerät | EMG and Motion Tools noch geöffnet? Schließen. Sensoren eingeschaltet und geladen? Konfigurationspfad korrekt? |
+| Testskript zeigt nur flache Linien (jeder Kanal ein konstanter Wert) | Die Aufnahme lag in der Anlaufphase der Sensoren (ca. 5 s nach dem Start) oder `ConfigureCapture` fehlt. Skript aus Schritt 6 in der aktuellen Fassung verwenden. |
+| CLI: „Keine Messwerte nach … s. Ohne Messwerte: Sensor […]“ | Die genannten Sensoren senden nicht: ausgeschaltet, Akku leer, nicht mit dem Receiver gekoppelt, oder `sensor_ids` in `config/acquisition.toml` passt nicht zu den Kanälen aus Schritt 4. |
 | `pip install -e ".[dev]"` schlägt fehl | Python-Version ≥ 3.11 und 64-Bit prüfen (`python -c "import struct; print(struct.calcsize('P')*8)"` → `64`). |
 
 ---
@@ -250,26 +325,11 @@ Treiber, SDK-Bibliotheken (`Waveplus.DaqSys.dll`, `CyUSB.dll` usw.) und die Come
 ## Quellen
 
 - Cometa: [EMG and Motion Tools](https://www.cometasystems.com/emg-and-motion-tools/)
+- Cometa: *Wave Plus – Use and Maintenance Manual*, Rev. 1, 05/05/2025 (Kap. 1.10, 6.1–6.4, 9) – liegt dem Messsystem in Papierform bei
+- Cometa: *EMG and Motion Tools – Software Manual*, Rev. 08.15, 11/03/2025 (Kap. 8.3, 12, 21)
+- Ambu: [BlueSensor-Katalog](https://cdn.shopify.com/s/files/1/1046/1086/files/Ambu-BlueSensor-Catalog.pdf) (Elektrodengrößen)
+- SENIAM: [Empfehlungen zur Elektrodenplatzierung für Oberflächen-EMG](http://www.seniam.org/)
 - Cometa: Python-Paket [`wavex` auf PyPI](https://pypi.org/project/wavex/)
 - Qualisys: [Cometa – Anforderungen und Treiberinstallation](https://docs.qualisys.com/qtm/content/integrations/emgs/cometa_qdev_requirements.htm)
 - D. Bitzer: *Analyse und Klassifikation von EMG-Signalen*, Studienarbeit, DHBW Karlsruhe (Kap. 4.1–4.3, Anhang 4)
 - Ursprüngliche Repositories: [SST-EMG-Sensor](https://github.com/db1tz3r/SST-EMG-Sensor), [EMG_Analyse](https://github.com/db1tz3r/EMG_Analyse)
-
-## Rohdaten aufnehmen (Cometa Wave Plus)
-
-### Aufnahme
-Voraussetzung: Einrichtung bis Schritt 5.
-
-```powershell
-python -m emg_tracking.acquisition.cli --duration 10 --name test
-```
-
-Sensoren und Event-Periode stehen in `config/acquisition.toml`; die Abtastrate ist fest 2000 Hz.
-Jede Aufnahme landet in `data/raw/` als CSV plus Kopie der verwendeten Konfiguration.
-
-| Spalte | Bedeutung |
-|---|---|
-| `sample_index` | fortlaufend ab 0; Zeit in s = Index / 2000 |
-| `host_time_ns` | PC-Zeit beim Eintreffen des SDK-Events (gleich für alle Zeilen eines Events) |
-| `sensor_<id>_uV` | Rohwert in µV, unverändert vom SDK, ohne Filter |
-| `usb_lost_packets` | vom SDK gemeldete USB-Paketverluste des Events |

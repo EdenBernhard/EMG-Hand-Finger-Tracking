@@ -14,6 +14,7 @@ DEFAULT_CONFIG = REPO_ROOT / "config" / "acquisition.toml"
 class AcquisitionConfig:
     sensor_ids: tuple[int, ...]
     event_period_ms: int
+    startup_timeout_s: float
     data_dir: Path
     source_file: Path
 
@@ -29,6 +30,7 @@ def load_config(path: Path = DEFAULT_CONFIG) -> AcquisitionConfig:
     return AcquisitionConfig(
         sensor_ids=sensor_ids,
         event_period_ms=raw["capture"]["event_period_ms"],
+        startup_timeout_s=float(raw["capture"]["startup_timeout_s"]),
         data_dir=REPO_ROOT / raw["output"]["data_dir"],
         source_file=Path(path),
     )

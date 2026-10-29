@@ -76,6 +76,8 @@ Sensoren in die Ladestation legen und **2–3 Stunden** vollständig laden.
 
 ### Schritt 3 – Treiber installieren
 
+Benötigt wird der Treiber **ab Version 3.1.0.0** (`DriverVer=05/06/2017,3.1.0.00` in der `.inf`). Nur diese Version ist von Microsoft signiert. Die ältere Version 3.0.0.20 (`DriverVer=01/30/2017,3.0.0.20`) ist nur von Cometa signiert und wird von Windows 11 bei aktivem Secure Boot blockiert (Fehlercode 52, siehe [Fehlerbehebung](#fehlerbehebung)). Version und Signatur vor der Installation prüfen: `DriverVer` in der `.inf` ansehen, und Rechtsklick auf `emgmusb.cat` → *Eigenschaften* → *Digitale Signaturen* muss „Microsoft Windows Hardware Compatibility Publisher“ zeigen.
+
 Der Treiber besteht aus fünf Dateien, die **zusammen in einem Ordner** bleiben müssen:
 
 | Datei | Zweck |
@@ -91,7 +93,7 @@ Der Treiber besteht aus fünf Dateien, die **zusammen in einem Ordner** bleiben 
 1. Receiver mit dem Originalkabel **direkt** am PC anschließen (kein USB-Hub).
 2. Geräte-Manager öffnen (`Win + X` → *Geräte-Manager*).
 3. Das Gerät erscheint meist unter *Andere Geräte* (gelbes Warndreieck) oder als unbekanntes USB-Gerät.
-4. Rechtsklick → *Eigenschaften* → *Details* → *Hardware-IDs*. Dort muss **`USB\VID_04B4&PID_1002`** stehen.
+4. Rechtsklick → *Eigenschaften* → *Details* → *Hardware-IDs*. Vor der Treiberinstallation steht dort in der Regel **`USB\VID_04B4&PID_1004`**. Das ist der Rohzustand des Receivers. Nach der Installation führt der Treiber `EmgMUsb.spt` aus, und der Receiver meldet sich neu als **`USB\VID_04B4&PID_1002`** („EMG and Motion Device“). Die `.inf` deckt beide Kennungen ab.
 
 **3.2 Treiber installieren** – eine der beiden Varianten:
 
@@ -112,6 +114,8 @@ pnputil /add-driver "C:\Pfad\zum\Treiberordner\EmgMUsb.inf" /install
 **3.3 Erfolg prüfen**
 
 - Im Geräte-Manager steht **„EMG and Motion Device“** ohne Warndreieck (ggf. Receiver einmal ab- und wieder anstecken).
+- Alternativ im Terminal: `pnputil /enum-devices /connected` muss für `USB\VID_04B4&PID_1002` den Status **Gestartet** zeigen. Steht dort noch `PID_1004` mit einem Problemcode, hat der Treiber nicht geladen (siehe [Fehlerbehebung](#fehlerbehebung)).
+- Installierte Version prüfen: `pnputil /enum-drivers` → Eintrag `emgmusb.inf` muss Version **3.1.0.0** und als Signaturgeber „Microsoft Windows Hardware Compatibility Publisher“ zeigen.
 
 ### Schritt 4 – Funktionstest und Konfiguration in EMG and Motion Tools
 
@@ -227,7 +231,8 @@ Hier lagen die meisten Probleme des Altsystems.
 | Problem | Ursache / Lösung |
 |---|---|
 | Geräte-Manager zeigt ein falsches Gerät | Gerät hängt an einem falschen Treiber: Rechtsklick → *Gerät deinstallieren* (ggf. Haken *Treiber entfernen*, aber nur bei Nicht-Windows-Treibern), neu anstecken, Schritt 3.2 wiederholen. |
-| Hardware-ID ist nicht `PID_1002` (z. B. `PID_1004`) | Gerät meldet sich anders. Die `.inf` deckt das ab, trotzdem Rücksprache mit Cometa halten. |
+| Hardware-ID ist `PID_1004` statt `PID_1002` | Vor der Treiberinstallation normal (Rohzustand des Receivers, siehe Schritt 3.1). Bleibt es nach der Installation bei `PID_1004`, hat der Treiber nicht geladen. Dann den Problemcode mit `pnputil /enum-devices /connected` prüfen. |
+| Gerät bleibt auf `PID_1004`, **Problemcode 52** (`CM_PROB_UNSIGNED_DRIVER`) | Es ist die alte Treiberversion **3.0.0.20** installiert. Sie ist nur von Cometa signiert, und Windows lädt sie bei aktivem Secure Boot nicht. Lösung: Version **3.1.0.0** installieren (von Microsoft signiert, siehe Schritt 3). Sie ersetzt die alte Version, Secure Boot kann dabei an bleiben. Einen anderen Treiber nur ausprobieren, wenn er neuer als 3.0.0.20 oder von Microsoft signiert ist. |
 | Windows meldet eine ungültige Signatur | Der Katalog ist von Microsoft signiert, also ist meist eine Datei verändert oder unvollständig (z. B. durch Git oder einen abgebrochenen Download). Originalpaket neu holen, **nicht** die Signaturprüfung abschalten. |
 | Treiber installiert, Gerät meldet Fehlercode | Windows 11 kann ältere Treiber über die **Speicherintegrität** blockieren (*Windows-Sicherheit → Gerätesicherheit → Kernisolierung*). Wird der Treiber dort als inkompatibel gelistet: bei Cometa nach einem neueren Treiber fragen. |
 | Letzter Ausweg bei Signaturproblemen | Signaturprüfung **für einen Neustart** deaktivieren: *Einstellungen → System → Wiederherstellung → Erweiterter Start → Problembehandlung → Erweiterte Optionen → Starteinstellungen → F7*. Danach ist sie automatisch wieder aktiv. |

@@ -26,4 +26,11 @@ Mit drei Fingern max( Zeigefinger, Mittelfinger, Daumen)
 
 <img width="1587" height="727" alt="image" src="https://github.com/user-attachments/assets/10dab344-3e16-4d56-bdf5-ad02d8342c9b" />
 
+
+
+## Literatur
+
+- https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=10623717&tag=1
+- https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0186132&type=printable
+- file:///C:/Users/etber/Downloads/Studienarbeit_Bitzer-Dominik%20(002)%20(1).pdf
    

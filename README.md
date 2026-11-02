@@ -32,5 +32,4 @@ Mit drei Fingern max( Zeigefinger, Mittelfinger, Daumen)
 
 - https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=10623717&tag=1
 - https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0186132&type=printable
-- file:///C:/Users/etber/Downloads/Studienarbeit_Bitzer-Dominik%20(002)%20(1).pdf
    

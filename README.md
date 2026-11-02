@@ -23,4 +23,7 @@ Mit drei Fingern max( Zeigefinger, Mittelfinger, Daumen)
 14. and Drehung um 45 Grad zur Seite gegen im Uhrzeigersinn
 15. Faust zur falchen Hand zurück formen
 16. ENDE
+
+<img width="1587" height="727" alt="image" src="https://github.com/user-attachments/assets/10dab344-3e16-4d56-bdf5-ad02d8342c9b" />
+
    

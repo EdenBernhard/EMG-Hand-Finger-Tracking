@@ -7,7 +7,7 @@ Mit drei Fingern max( Zeigefinger, Mittelfinger, Daumen)
 
 ### Startzustand: Flache Hand
 
-1. Hand zu Faust langsame ballen und 2-3 Sekunden halten (Daumen wird nicht umschlossen von anderen Fingern)
+1. Hand zu Faust langsam ballen und 2-3 Sekunden halten (Daumen wird nicht umschlossen von anderen Fingern)
 2. Hand Drehung um 45 Grad nach oben gegen den Uhrzeigersinn
 3. Zeigefinger austrecken
 4. Handform beibehalten und drei Wischbewegungen von rechts nach links (Mit Reset)

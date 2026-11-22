@@ -19,7 +19,7 @@ export function aufnahmenListe(p) {
       <td class="klein"><code>${esc(a.name)}</code></td></tr>`).join("");
   return `<div class="karte">
     <h2 style="margin-top:0">Bisherige Messungen</h2>
-    <p class="klein">Dateien im Backend unter <code>backend/data/raw/${esc(p.id)}/</code>: <code>&lt;Datei&gt;.csv</code> (Rohdaten),
+    <p class="klein">Dateien unter <code>data/probanden/${esc(p.id)}/</code>: <code>&lt;Datei&gt;.csv</code> (Rohdaten),
       <code>.cues.csv</code> (Bewegungsvorgaben mit Sample-Index), <code>.protocol.json</code> (Messplan, Platzierung, Notiz, Ablauf).</p>
     <div class="tabelle"><table>
       <thead><tr><th>Datum</th><th>Messplan</th><th>Platzierung</th><th>Notiz</th><th>Dauer</th><th>Vorgaben</th><th>Datei</th></tr></thead>

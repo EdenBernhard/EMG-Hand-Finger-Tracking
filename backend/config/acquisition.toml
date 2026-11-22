@@ -25,5 +25,8 @@ startup_timeout_s = 15
 accelerometer_full_scale = "g_2"
 
 [output]
-# Zielordner für Aufnahmen (nicht versioniert, siehe .gitignore).
-data_dir = "data/raw"
+# Zielordner (relativ zu backend/), nicht versioniert, siehe .gitignore.
+# Messungen aus der Webapp: <subjects_dir>/<Proband-ID>/, derselbe Ordner wie proband.json und Fotos.
+subjects_dir = "../data/probanden"
+# Freie Aufnahmen ohne Proband (emg_tracking.acquisition.cli).
+data_dir = "../data/ohne_proband"

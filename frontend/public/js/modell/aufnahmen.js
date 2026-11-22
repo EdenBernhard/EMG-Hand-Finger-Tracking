@@ -1,5 +1,5 @@
-// Abgeschlossene EMG-Messungen eines Probanden (nur die Übersicht; die Daten liegen im Backend
-// unter backend/data/raw/<proband-id>/<name>.*). Wird von Browser und Server genutzt.
+// Abgeschlossene EMG-Messungen eines Probanden (nur die Übersicht; die Daten schreibt das Backend
+// nach data/probanden/<proband-id>/<name>.*). Wird von Browser und Server genutzt.
 
 const MAX_ANZAHL = 500;
 const NAME_MUSTER = /^[A-Za-z0-9_-]{1,80}$/;

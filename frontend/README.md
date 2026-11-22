@@ -13,7 +13,7 @@ npm test           # Modell- und API-Tests
 ```
 
 Optional: `$env:PORT=8080` bzw. `$env:DATA_DIR="D:\pfad"` vor `npm start`. Für Messungen muss das Backend eingerichtet sein (README im Hauptordner, Schritt 5). Der Server nimmt `backend\.venv\Scripts\python.exe`, falls vorhanden, sonst `python` aus dem PATH; ein anderes Python per `$env:PYTHON`.
-Probanden-Daten liegen in `frontend/data/probanden/<id>/` (`proband.json` mit Maßen, Punkten und allen Platzierungen, dazu `innen.jpg`, `oben.jpg`) und sind per `.gitignore` von Git ausgeschlossen. Ältere `proband.json` mit nur einer Anordnung werden beim Laden automatisch in eine Platzierung umgewandelt.
+Probanden-Daten liegen in `data/probanden/<id>/` im Hauptordner (`proband.json` mit Maßen, Punkten und allen Platzierungen, dazu `innen.jpg`, `oben.jpg`) und sind per `.gitignore` von Git ausgeschlossen. Im selben Ordner speichert das Backend die Messungen (`subjects_dir` in `backend/config/acquisition.toml`; wer `DATA_DIR` ändert, muss dort denselben Ordner eintragen). Ältere `proband.json` mit nur einer Anordnung werden beim Laden automatisch in eine Platzierung umgewandelt.
 
 ## Ablauf in der App
 

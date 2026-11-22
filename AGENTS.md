@@ -19,8 +19,9 @@ Regeln für jeden Code, den Codex schreibt oder ändert:
 - Generierten Code vor dem Abschluss immer gegen diese Regeln prüfen.
 
 ## Repo-Struktur
-- `backend/` – Python-Paket `emg_tracking` mit der Pipeline (Erfassung → Vorverarbeitung → ML → Ausgabe), dazu Tests, Konfiguration, Treiber und Aufnahmen (`backend/data/`, nicht versioniert). Alles zum Auslesen der Sensoren liegt hier.
+- `backend/` – Python-Paket `emg_tracking` mit der Pipeline (Erfassung → Vorverarbeitung → ML → Ausgabe), dazu Tests, Konfiguration und Treiber. Alles zum Auslesen der Sensoren liegt hier.
 - `frontend/` – Webapp pro Proband (Node.js, nur Standardbibliothek): Elektrodenplatzierung und Messung mit Bewegungsvorgaben (Piepton im Intervall, Anzeige der Bewegung). **Kein Teil der Pipeline** und ohne eigenen Zugriff auf die Sensoren: Messungen startet der Node-Server als Python-Prozess im Backend (`emg_tracking.acquisition.measurement.cli`), nur dieser liest den Receiver. Für den Frontend-Code gelten dieselben Regeln (eine Aufgabe pro Datei, keine Magic Numbers, wenige Abhängigkeiten).
+- `data/` – alle Daten, nicht versioniert: `data/probanden/<id>/` enthält pro Proband die Webapp-Daten (`proband.json`, Fotos) und die Messungen des Backends; `data/ohne_proband/` freie CLI-Aufnahmen.
 - `docs/` – Fahrplan und Session-Protokolle.
 
 ## Leitlinien

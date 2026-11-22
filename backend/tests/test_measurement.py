@@ -119,7 +119,7 @@ def test_cli_runs_measurement_and_writes_files(tmp_path, monkeypatch):
     config.write_text(
         "[sdk]\ndir = 'lib/cometa'\ndevice_ready_timeout_s = 1\n"
         "[capture]\nsensor_ids = [1]\nevent_period_ms = 10\nstartup_timeout_s = 1\naccelerometer_full_scale = 'g_2'\n"
-        f"[output]\ndata_dir = '{tmp_path.as_posix()}/raw'\n",
+        f"[output]\ndata_dir = '{tmp_path.as_posix()}/frei'\nsubjects_dir = '{tmp_path.as_posix()}/raw'\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(cli, "load_sdk", lambda path: SimpleNamespace(version="0.0.0-test"))

@@ -10,7 +10,7 @@ Aufruf im Ordner ``backend``: ``python -m emg_tracking.acquisition.measurement.c
 - stdout: ein JSON-Objekt pro Zeile mit ``type`` = ``waiting_for_sensors``, ``recording``, ``cue``,
   ``finished`` oder ``error``. Menschenlesbare Meldungen gehen nach stderr.
 
-Dateien in ``data/raw/<subject_id>/``, Stamm ``<zeit>_<label als Dateiname>``: ``<stamm>.csv`` (Rohdaten), ``<stamm>.cues.csv`` (Vorgaben),
+Dateien in ``data/probanden/<subject_id>/`` (``subjects_dir`` der Konfiguration), Stamm ``<zeit>_<label als Dateiname>``: ``<stamm>.csv`` (Rohdaten), ``<stamm>.cues.csv`` (Vorgaben),
 ``<stamm>.protocol.json`` (Messplan und Ablauf) und ``<stamm>.config.toml`` (Kopie der Konfiguration).
 """
 
@@ -60,7 +60,7 @@ def _write_protocol_json(
 def run(protocol: MeasurementProtocol, cfg: AcquisitionConfig, events: EventStream, stop: threading.Event) -> None:
     sdk = load_sdk(cfg.sdk_dir)
     started_at = datetime.now()
-    files = RecordingFiles.create(cfg.data_dir / protocol.subject_id, recording_name(protocol.label), started_at)
+    files = RecordingFiles.create(cfg.subjects_dir / protocol.subject_id, recording_name(protocol.label), started_at)
     receiver = CometaReceiver(
         sdk, cfg.sensor_ids, cfg.event_period_ms, cfg.accelerometer_full_scale, cfg.device_ready_timeout_s
     )

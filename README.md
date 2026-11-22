@@ -177,7 +177,7 @@ Kurze Aufnahme über die Kommandozeile (im Ordner `backend`, Umgebung aktiviert,
 python -m emg_tracking.acquisition.cli --duration 5 --name funktionstest
 ```
 
-Die CLI wartet, bis der Receiver bereit ist und alle Sensoren aus `config/acquisition.toml` senden, nimmt dann 5 s auf und speichert sie unter `data/raw/` (Format siehe [Rohdaten aufnehmen](#rohdaten-aufnehmen)). Wenn die Werte in der CSV bei Fingerbewegungen deutlich ausschlagen, funktioniert die gesamte Kette.
+Die CLI wartet, bis der Receiver bereit ist und alle Sensoren aus `config/acquisition.toml` senden, nimmt dann 5 s auf und speichert sie unter `data/ohne_proband/` (im Hauptordner) (Format siehe [Rohdaten aufnehmen](#rohdaten-aufnehmen)). Wenn die Werte in der CSV bei Fingerbewegungen deutlich ausschlagen, funktioniert die gesamte Kette.
 
 > **Anlaufphase:** Nach `StartCapturing` senden die Sensoren erst nach etwa 5 s (gemessen am 29.10.2026, damals noch über `wavex`), und nicht alle gleichzeitig. Bis dahin liefert der Receiver pro Kanal nur einen konstanten Wert. Die Erfassung erkennt das und verwirft diese Samples.
 >
@@ -198,7 +198,7 @@ python -m emg_tracking.acquisition.cli --duration 10 --name test
 ```
 
 Sensoren (`sensor_ids`), Event-Periode, maximale Anlaufzeit (`startup_timeout_s`) und der Ort der SDK-Dateien (`[sdk]`) stehen in `backend/config/acquisition.toml`; die Abtastrate ist fest 2000 Hz. Die `.cfg` aus Schritt 4 wird dafür nicht gebraucht.
-Jede Aufnahme landet in `backend/data/raw/` als CSV plus Kopie der verwendeten Konfiguration.
+Jede Aufnahme landet in `data/ohne_proband/` (im Hauptordner) als CSV plus Kopie der verwendeten Konfiguration.
 
 Nach dem Start wartet die CLI, bis **alle** gewählten Sensoren echte Messwerte liefern (Anlaufphase, ca. 5 s). Erst ab dann wird gespeichert, und erst ab dann zählt `--duration` (in Samples, nicht in Rechnerzeit). Sendet ein Sensor bis `startup_timeout_s` nicht, bricht die Aufnahme ab und nennt die betroffenen Sensoren.
 
@@ -225,7 +225,7 @@ Der Node-Server startet dafür `python -m emg_tracking.acquisition.measurement.c
 
 **Takt:** Die Vorgaben werden in Samples gezählt, nicht im Browser: Vorgabe *k* beginnt bei Sample `(Vorlauf + k · Intervall) · 2000`, gezählt ab dem ersten echten Messwert. Die Labels liegen damit exakt auf der Zeitachse der Rohdaten. Der Piepton kommt etwas später (Event-Periode von 10 ms plus Übertragung), die Reaktion des Probanden nochmals später. Das muss die Vorverarbeitung berücksichtigen, z. B. indem sie den Anfang jedes Segments verwirft.
 
-Dateien in `backend/data/raw/<Proband-ID>/` (die ID aus der Webapp, nicht der Name); der Namensstamm ist `<Zeit>_<Name des Messplans>`, z. B. `2026-11-18_10-15-00_pinch`:
+Dateien in `data/probanden/<Proband-ID>/` im Hauptordner, zusammen mit `proband.json` und den Fotos der Webapp (die ID aus der Webapp, nicht der Name); der Namensstamm ist `<Zeit>_<Name des Messplans>`, z. B. `2026-11-18_10-15-00_pinch`:
 
 | Datei | Inhalt |
 |---|---|

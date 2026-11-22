@@ -20,6 +20,7 @@ class AcquisitionConfig:
     startup_timeout_s: float
     accelerometer_full_scale: str
     data_dir: Path
+    subjects_dir: Path
     source_file: Path
 
 
@@ -39,5 +40,6 @@ def load_config(path: Path = DEFAULT_CONFIG) -> AcquisitionConfig:
         startup_timeout_s=float(raw["capture"]["startup_timeout_s"]),
         accelerometer_full_scale=raw["capture"]["accelerometer_full_scale"],
         data_dir=BACKEND_ROOT / raw["output"]["data_dir"],
+        subjects_dir=BACKEND_ROOT / raw["output"]["subjects_dir"],
         source_file=Path(path),
     )

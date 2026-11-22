@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-# Wird als Ordnername unter data/raw/ verwendet, daher nur unkritische Zeichen.
+# Wird als Ordnername unter data/probanden/ verwendet, daher nur unkritische Zeichen.
 SUBJECT_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 MAX_LABEL_LENGTH = 80
 

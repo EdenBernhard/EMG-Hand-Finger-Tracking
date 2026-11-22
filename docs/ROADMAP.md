@@ -31,5 +31,10 @@ Hier lagen die meisten Probleme des Altsystems.
 ## Stufe 4 – Studiendesign
 
 - [ ] **Messprotokoll:** Bewegungen, Wiederholungen, Pausen, Kraftniveau, Sensorpositionen mit Schablone.
+  - [x] Webapp [`frontend/`](../frontend/README.md) berechnet die Elektrodenpositionen pro Proband aus tastbaren Punkten, Maßband-Maßen und Fotos (Anordnungen A–E, D und E mit nur 3 Sensoren – gezielt bzw. als Ring); pro Proband lassen sich mehrere Platzierungen anlegen und vergleichen.
+  - [ ] Positionswerte der Anordnungen mit Testmessungen prüfen und anpassen.
+  - [x] Messung mit Bewegungsvorgaben aus der Webapp (Schritt 7): Bewegungen, Intervall, Wiederholungen, Vorlauf; Piepton und Anzeige im Browser, Takt und Labels (`.cues.csv`) in Python auf der Sample-Zeitachse. Erfassung über das .NET-SDK (Waveplus.DaqSys) und pythonnet statt `wavex`.
+  - [x] Mehrere benannte Messpläne pro Proband; jede Messung speichert Messplan, Elektroden-Platzierung und Notiz.
+  - [ ] Mit angeschlossenem Receiver testen (bisher nur ohne Hardware geprüft).
 - [ ] **Anzahl der Probanden** festlegen und ob die Sensoren zwischen Sitzungen bewusst neu angelegt werden – das ist entscheidend für die Generalisierung auf neue Personen.
 - [ ] Mit dem Betreuer klären, ob für Messungen an anderen Personen eine **Einverständniserklärung** nötig ist.

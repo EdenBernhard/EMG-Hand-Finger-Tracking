@@ -1,0 +1,29 @@
+# Konfiguration der Rohdaten-Erfassung (Cometa Wave Plus über das .NET-SDK Waveplus.DaqSys
+# und pythonnet). Diese Datei ist versioniert: Jede Aufnahme speichert eine Kopie davon neben der CSV.
+# Die Abtastrate ist fest 2000 Hz (SamplingRate.Hz_2000 ist die einzige Rate des SDK) und daher
+# keine Option.
+
+[sdk]
+# Ordner mit Waveplus.DaqSys.dll, Waveplus.DaqSysInterface.dll und CyUSB.dll (relativ zu backend/).
+# Die DLLs sind proprietär und nicht versioniert (siehe README, "SDK einrichten").
+dir = "lib/cometa"
+# Nach dem Erzeugen von DaqSystem initialisiert das SDK den Receiver im Hintergrund
+# (NotConnected -> Initializing -> Idle). So lange wird höchstens auf Idle gewartet.
+device_ready_timeout_s = 10
+
+[capture]
+# Sensor-IDs wie in der Cometa-Software (1-basiert). Altsystem: 1, 2, 4.
+sensor_ids = [1, 2, 4]
+# Takt der DataAvailable-Events; SDK erlaubt 10, 25, 50, 100.
+event_period_ms = 10
+# Nach dem Start senden die Sensoren erst nach einer Anlaufphase (gemessen 2026-10-29: ca. 5 s);
+# bis dahin wird nichts gespeichert. Kommen bis zu diesem Zeitpunkt keine echten Messwerte,
+# bricht die Aufnahme mit einer Fehlermeldung ab.
+startup_timeout_s = 15
+# Messbereich des Beschleunigungssensors in jedem EMG-Sensor (g_2, g_4, g_8, g_16).
+# g_2 wie im SDK-Beispiel für EMG-Sensoren; die Beschleunigung wird derzeit nicht gespeichert.
+accelerometer_full_scale = "g_2"
+
+[output]
+# Zielordner für Aufnahmen (nicht versioniert, siehe .gitignore).
+data_dir = "data/raw"

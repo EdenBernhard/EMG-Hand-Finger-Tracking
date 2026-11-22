@@ -9,13 +9,28 @@ Ziele: saubere, reproduzierbare Rohdaten, vergleichbare Messungen über mehrere 
 
 ## Inhalt
 
+- [Aufbau des Repos](#aufbau-des-repos)
 - [Wie die Daten fließen](#wie-die-daten-fließen)
 - [Was du brauchst](#was-du-brauchst)
 - [Schritt für Schritt zur ersten Messung](#schritt-für-schritt-zur-ersten-messung)
 - [Rohdaten aufnehmen](#rohdaten-aufnehmen)
+- [Messung mit Bewegungsvorgaben (Webapp)](#messung-mit-bewegungsvorgaben-webapp)
 - [Fehlerbehebung](#fehlerbehebung)
 - [Hinweise zu Herstellerdateien](#hinweise-zu-herstellerdateien)
 - [Quellen](#quellen)
+
+---
+
+## Aufbau des Repos
+
+```
+EMG-Hand-Finger-Tracking/
+├── backend/     Auslesen der Sensoren und Pipeline (Python): src/, tests/, config/, Driver/, data/
+├── frontend/    Webapp pro Proband (Node.js): Elektrodenplatzierung und Messung mit Bewegungsvorgaben, siehe frontend/README.md
+└── docs/        Fahrplan und Session-Protokolle
+```
+
+Alle Python-Befehle in dieser README werden im Ordner **`backend`** ausgeführt.
 
 ---
 
@@ -26,14 +41,14 @@ Haut ─▶ Cometa-Sensoren (Pico / Mini Wave) ──Funk──▶ WavePlus-Rece
                                                                                   │
                                                      Treiber (EmgMUsb) ◀──────────┘
                                                             │
-                                                Python: Cometa-Paket `wavex`
+                              Python: Cometa-.NET-SDK (Waveplus.DaqSys) über pythonnet
                                                             │
                                          Speichern ─▶ Vorverarbeitung ─▶ Klassifikation
 ```
 
 - Die Sensoren digitalisieren das Signal selbst (2000 Hz) und funken es über ein **proprietäres Funkprotokoll** (kein Bluetooth) an den Receiver. Deshalb ist der Receiver zwingend nötig.
 - Der Receiver ist für den PC ein USB-Gerät mit der Kennung `USB\VID_04B4&PID_1002`. Damit Windows ihn ansprechen kann, braucht es den Cometa-Treiber.
-- Python greift über das offizielle Cometa-Paket [`wavex`](https://pypi.org/project/wavex/) auf die Daten zu. Ein separates C#-Programm (wie in der ursprünglichen Studienarbeit) ist damit nicht mehr nötig.
+- Python lädt das .NET-SDK von Cometa (`Waveplus.DaqSys.dll`, Version 5.0.7) über [pythonnet](https://pythonnet.github.io/) direkt in den Python-Prozess. Ein separates C#-Programm (wie in der ursprünglichen Studienarbeit) ist damit nicht nötig. Das Paket `wavex` wird seit 2026-11-18 nicht mehr verwendet.
 
 ---
 
@@ -58,7 +73,10 @@ Haut ─▶ Cometa-Sensoren (Pico / Mini Wave) ──Funk──▶ WavePlus-Rece
 | **Cometa EMG and Motion Tools** | Funktionstest, Sensorkonfiguration, Konfigurationsdatei (`.cfg`) | Liegt dem Messsystem bei oder kostenlos für Cometa-Kunden auf [cometasystems.com/emg-and-motion-tools](https://www.cometasystems.com/emg-and-motion-tools/) (Registrierung für Updates) |
 | **WavePlus-USB-Treiber** (`EmgMUsb`) | Windows erkennt den Receiver | Im Software-/Treiberpaket von Cometa; sonst beim Cometa-Support oder beim Laborverantwortlichen anfragen |
 | **Python ≥ 3.11 (64-Bit)** | Datenerfassung und Auswertung | [python.org/downloads/windows](https://www.python.org/downloads/windows/) |
-| Python-Paket **`wavex`** | Zugriff auf Receiver und Sensoren aus Python | wird mit dem Projekt installiert (Schritt 5; [PyPI](https://pypi.org/project/wavex/), Herausgeber: Cometa srl) |
+| **Cometa-SDK Waveplus.Daq** (.NET, getestet: 5.0.7 vom 16.04.2020) | Zugriff auf Receiver und Sensoren; daraus werden `Waveplus.DaqSys.dll`, `Waveplus.DaqSysInterface.dll` und `CyUSB.dll` gebraucht | Von Cometa (SDK-Paket, nicht öffentlich); beim Laborverantwortlichen oder Cometa-Support anfragen |
+| **.NET Framework ≥ 4.6.1** | Laufzeit für das SDK | in Windows 10/11 enthalten (4.8) |
+| Python-Paket **`pythonnet`** | lädt das .NET-SDK in Python | wird mit dem Projekt installiert (Schritt 5) |
+| **Node.js ≥ 20** | Webapp in `frontend/` (Platzierung, Messung mit Bewegungsvorgaben) | [nodejs.org](https://nodejs.org/) |
 | **Git** | Repo klonen | [git-scm.com](https://git-scm.com/download/win) |
 
 ---
@@ -123,152 +141,49 @@ pnputil /add-driver "C:\Pfad\zum\Treiberordner\EmgMUsb.inf" /install
 1. Sensoren einschalten, EMG and Motion Tools starten.
 2. Die Software muss den Receiver und die Sensoren anzeigen. Notiere, **auf welchem Kanal** welcher Sensor liegt.
 3. Abtastrate auf **2000 Hz** stellen und die benötigten Sensoren aktivieren.
-4. Die Konfiguration als **`.cfg`-Datei** unter `config\EMGHandMotionToolConfig.cfg` im Repo speichern. Diese Datei braucht nur das Testskript in Schritt 6. Für echte Aufnahmen stehen die Sensoren in `config/acquisition.toml` (siehe [Rohdaten aufnehmen](#rohdaten-aufnehmen)). Die dort eingetragenen `sensor_ids` müssen zu den hier notierten Kanälen passen.
+4. Die Konfiguration als **`.cfg`-Datei** unter `backend\config\EMGHandMotionToolConfig.cfg` im Repo speichern. Diese Datei braucht nur das Testskript in Schritt 6. Für echte Aufnahmen stehen die Sensoren in `backend/config/acquisition.toml` (siehe [Rohdaten aufnehmen](#rohdaten-aufnehmen)). Die dort eingetragenen `sensor_ids` müssen zu den hier notierten Kanälen passen.
 5. EMG and Motion Tools **schließen**, bevor Python auf den Receiver zugreift (nur ein Programm kann das Gerät gleichzeitig nutzen).
 
 ### Schritt 5 – Python-Umgebung einrichten
 
-Im Terminal (PowerShell) im Repo-Ordner:
+Im Terminal (PowerShell):
 
 ```powershell
 git clone https://github.com/EdenBernhard/EMG-Hand-Finger-Tracking.git
-cd EMG-Hand-Finger-Tracking
+cd EMG-Hand-Finger-Tracking\backend      # Python-Teil liegt im Ordner backend
 
 python --version                 # muss 3.11 oder neuer sein, 64-Bit
 python -m venv .venv
 .venv\Scripts\Activate.ps1
-pip install -e ".[dev]"          # Projekt inkl. wavex, numpy und pytest
-pip install matplotlib           # nur für das Testskript in Schritt 6
+pip install -e ".[dev]"          # Projekt inkl. pythonnet, numpy und pytest
 ```
+
+Danach die SDK-Dateien aus dem Cometa-SDK-Paket (Ordner `bin\NET.4.6.1`) nach `backend\lib\cometa\` kopieren:
+
+```powershell
+mkdir lib\cometa
+copy "<SDK-Ordner>\bin\NET.4.6.1\*.dll" lib\cometa\     # Waveplus.DaqSys.dll, Waveplus.DaqSysInterface.dll, CyUSB.dll
+```
+
+Der Ordner ist per `.gitignore` ausgeschlossen (proprietär). Ein anderer Ort lässt sich in `backend/config/acquisition.toml` unter `[sdk] dir` eintragen.
 
 > Falls PowerShell das Aktivieren blockiert: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` einmalig ausführen.
 
 ### Schritt 6 – Erster Datenabruf
 
-Testskript, angelehnt an das Beispiel, das im `wavex`-Paket mitgeliefert wird (`wavex/test.py`). Mit dieser Hardware getestet am 29.10.2026. Als `test_aufnahme.py` im Repo-Ordner speichern und mit `python test_aufnahme.py` starten.
+Kurze Aufnahme über die Kommandozeile (im Ordner `backend`, Umgebung aktiviert, EMG and Motion Tools geschlossen):
 
-```python
-import time
-from pathlib import Path
-
-import matplotlib.pyplot as plt
-import numpy as np
-import wavex
-
-CONFIG_FILE = Path(__file__).resolve().parent / "config" / "EMGHandMotionToolConfig.cfg"  # aus Schritt 4
-WARMUP_S = 7      # Anlaufzeit der Sensoren, siehe Hinweis unten
-DURATION_S = 5
-
-buffer = []
-
-def on_data(args):
-    # args.EmgSamples: NumPy-Array [Kanal, Sample]; kopieren, da der Puffer danach wiederverwendet wird
-    buffer.append(args.EmgSamples.copy())
-
-daq = wavex.DaqSystem()
-try:
-    # Reihenfolge wie im Herstellerbeispiel: erst Erfassung konfigurieren, dann .cfg laden
-    capture_cfg = wavex.CaptureConfiguration()
-    capture_cfg.set_emg_acq_p(wavex.enums.EmgAcqPType.Emg_2kHz_Acc_142Hz)  # WavePlus: EMG mit 2000 Hz
-    daq.OnDataAvailable(on_data)
-    daq.ConfigureCapture(capture_cfg)
-    enabled = daq.LoadConfiguration(str(CONFIG_FILE))
-    print("Aktivierte EMG-Kanäle:", [i + 1 for i, on in enumerate(enabled["EnabledEfaChannels"]) if on])
-
-    daq.StartCapturing(wavex.enums.DataAvailableEventPeriod.ms_100)
-    time.sleep(WARMUP_S)           # Anlaufphase abwarten und verwerfen
-    buffer.clear()
-    print(f"Aufnahme läuft {DURATION_S} s – Finger bewegen ...")
-    time.sleep(DURATION_S)
-    daq.StopCapturing()
-finally:
-    daq.close()                    # Gerät freigeben, auch bei Fehlern
-
-emg = np.concatenate(buffer, axis=1)   # [Kanal, Sample] in µV
-print("Form:", emg.shape)              # bei 2000 Hz und 5 s ca. 10 000 Samples pro Kanal
-np.save("test_aufnahme.npy", emg)
-
-plt.plot(emg.T)
-plt.xlabel("Sample (2000 Hz)")
-plt.ylabel("EMG [µV]")
-plt.show()
+```powershell
+python -m emg_tracking.acquisition.cli --duration 5 --name funktionstest
 ```
 
-Wenn ein Signal erscheint, das bei Fingerbewegungen deutlich ausschlägt, funktioniert die gesamte Kette.
+Die CLI wartet, bis der Receiver bereit ist und alle Sensoren aus `config/acquisition.toml` senden, nimmt dann 5 s auf und speichert sie unter `data/raw/` (Format siehe [Rohdaten aufnehmen](#rohdaten-aufnehmen)). Wenn die Werte in der CSV bei Fingerbewegungen deutlich ausschlagen, funktioniert die gesamte Kette.
 
-> **Anlaufphase:** Nach `StartCapturing` senden die Sensoren erst nach etwa 5 s (gemessen am 29.10.2026), und nicht alle gleichzeitig. Bis dahin liefert der Receiver pro Kanal nur einen konstanten Wert. Ohne Wartezeit sieht man deshalb nur flache Linien.
+> **Anlaufphase:** Nach `StartCapturing` senden die Sensoren erst nach etwa 5 s (gemessen am 29.10.2026, damals noch über `wavex`), und nicht alle gleichzeitig. Bis dahin liefert der Receiver pro Kanal nur einen konstanten Wert. Die Erfassung erkennt das und verwirft diese Samples.
 >
-> **`ConfigureCapture` mit `set_emg_acq_p`** ist nötig, weil der Receiver ein WavePlus ist (Suffix `_p`). Mit dem Wave-X-Modus (`set_emg_acq_x`) kommen keine Daten.
-
-### Schritt 7 – Vorbereitung vor dem Anlegen der Elektroden
-
-Der Kontakt zwischen Haut und Elektrode entscheidet über die Datenqualität. Ein schlechter Kontakt lässt sich später durch keinen Filter retten. Diese Schritte deshalb **vor jeder Sitzung** vollständig durchgehen und das Ergebnis im Sitzungsprotokoll festhalten.
-
-**7.1 Material prüfen**
-
-- [ ] **Elektroden:** frische, vorgegelte Ag/AgCl-Einwegelektroden. Cometa liefert **Ambu BlueSensor N** (`N-00-S`, ca. 44,8 × 22 mm) mit. Wegen ihrer schmalen Form passen sie gut an den Unterarm. Große EKG-Elektroden (z. B. BlueSensor R, VL) sind ungeeignet, weil sie Signale benachbarter Muskeln mitmessen (Übersprechen).
-- [ ] **Haltbarkeitsdatum** prüfen. Angebrochene Beutel wieder verschließen. Ausgetrocknetes Gel ist die häufigste Ursache für einen fehlschlagenden Impedanz-Check.
-- [ ] Elektroden **nie wiederverwenden**, auch nicht innerhalb derselben Sitzung nach dem Umkleben.
-- [ ] Bei **Mini Wave**: die mitgelieferten Einweg-Klebepads für das Sensorgehäuse bereitlegen (siehe 8.3). Bei **Pico** werden keine Pads benötigt.
-- [ ] Alkoholtupfer, Einwegrasierer, ggf. Abrasivgel oder ein trockenes, raues Tuch, Hautmarker bzw. Schablone (Strumpf).
-
-**7.2 Sensoren und Receiver vorbereiten**
-
-- [ ] Sensoren vollständig geladen: Ladestation-LED **grün** (8-h-Ladezyklus beendet), Sensor-LED **orange aus**.
-- [ ] Sensoren auf Beschädigungen prüfen, besonders die Kabel und Druckknöpfe der Mini Wave.
-- [ ] Receiver einschalten (Schalter hinten). Die erste LED links auf der Vorderseite muss leuchten.
-- [ ] Notieren, **welcher Sensor (Kanalnummer auf dem Gehäuse)** an welche Position kommt. Bei jeder Sitzung und jedem Probanden dieselbe Zuordnung verwenden, auch beim Sensortyp: Pico (feste Druckknöpfe) und Mini Wave (Kabel) messen wegen des unterschiedlichen Elektrodenabstands nicht identisch.
-
-**7.3 Messumgebung**
-
-- [ ] Receiver **mindestens 1,5 m** vom Probanden entfernt aufstellen. Receiver und Proband nie gleichzeitig berühren.
-- [ ] Smartphones und andere Funkgeräte **mindestens 30 cm** von Sensoren und Receiver fernhalten. Nicht direkt neben anderen elektromedizinischen Geräten messen.
-- [ ] Netzbrummen (50 Hz) verringern: Abstand zu Steckdosenleisten und Netzkabeln. Den Laptop möglichst im Akkubetrieb laufen lassen.
-- [ ] Der Raum sollte normal temperiert sein (Betriebsbereich 10–35 °C). Kalte Haut erhöht die Impedanz, Schweiß verschlechtert die Haftung.
-
-**7.4 Proband und Haut**
-
-- [ ] Fragen, ob eine **Unverträglichkeit gegen Elektrodengel oder Kleber** bekannt ist.
-- [ ] Die Haut an den Messstellen muss **unverletzt** sein. Nicht auf Wunden, Ekzemen oder gereizter Haut messen.
-- [ ] Der Proband sitzt bequem. Der Unterarm liegt entspannt auf, die Handfläche zeigt in die Position, die auch während der Messung gilt.
-- [ ] Messstellen mit Schablone oder Strumpf anzeichnen (siehe Schritt 8.1).
-- [ ] **Hautvorbereitung**, in dieser Reihenfolge:
-  1. Haare an den Messstellen **rasieren**.
-  2. Haut **leicht anrauen**, z. B. mit Abrasivgel oder einigen Strichen mit einem trockenen, rauen Tuch. Das entfernt abgestorbene Hautschüppchen und senkt die Hautimpedanz deutlich.
-  3. Mit **Alkohol** reinigen (Fett, Creme, Schweiß).
-  4. Haut **vollständig trocknen lassen**. Auf feuchter Haut haften die Elektroden schlecht.
-
-### Schritt 8 – Sensoren anbringen (für echte Messungen)
-
-**8.1 Positionen**
-
-1. Elektroden über dem Muskelbauch, **parallel zum Faserverlauf** kleben (Unterarm: Fingerbeuger und -strecker). Laut Cometa liegen sie in Längsrichtung **mittig zwischen Innervationszone und distaler Sehne**, also nicht direkt auf der Innervationszone und nicht auf der Sehne. In Querrichtung halten sie Abstand zum Rand des Muskels, damit Nachbarmuskeln möglichst wenig einstreuen.
-2. Elektrodenabstand etwa **20 mm** (Mitte zu Mitte, SENIAM-Empfehlung). Beim Pico ist er durch die festen Druckknöpfe vorgegeben.
-3. Positionen markieren oder eine Schablone verwenden (in der Studienarbeit: markierter Strumpf), damit sie bei jeder Sitzung und jedem Probanden gleich sind. Am besten zusätzlich ein Foto der Platzierung ins Sitzungsprotokoll legen.
-
-**8.2 Pico**
-
-1. Elektroden auf die Druckknöpfe des Pico klicken (fest einrasten lassen) und den Pico mit den Elektroden auf die Haut kleben.
-2. Die Elektroden halten den Sensor, zusätzliche Klebepads sind nicht nötig. Die Elektroden sollten aber vollflächig aufliegen: Eine Schablone oder ein Strumpf darf den Sensor andrücken, ihn aber nicht wegziehen oder kippen.
-
-**8.3 Mini Wave**
-
-Reihenfolge laut Cometa:
-
-1. Elektroden auf die vorbereitete Haut kleben.
-2. Einweg-Klebepad erst auf das Sensorgehäuse, dann auf die Haut kleben. Das Gehäuse darf **nie direkt auf der Haut** liegen. Pads nicht wiederverwenden, beim Umsetzen ein neues Pad nehmen.
-3. Gehäuse so platzieren, dass die Kabel die Elektroden **ohne Zug** erreichen. Nahe am Handgelenk oder Ellenbogen prüfen, ob die Bewegung die Kabel spannt.
-4. Erst danach die Druckknöpfe mit den Elektroden verbinden.
-
-> Zieht ein Kabel an der Elektrode, verliert diese teilweise den Kontakt. Typisches Symptom: Das Signal wird besser, wenn man den Sensor andrückt.
-
-**8.4 Kurz warten, dann prüfen**
-
-1. Nach dem Aufkleben **ca. 5 Minuten warten**. In dieser Zeit zieht das Gel in die Haut ein und die Impedanz sinkt (Erfahrungswert, keine Herstellerangabe).
-2. Sensor-LEDs prüfen: grün = verbunden. Am Receiver leuchtet pro verbundenem Kanal eine LED.
-3. In EMG and Motion Tools den **Impedanz-Check** ausführen (Konfiguration → EMG → *Check Impedance*, Grenze < 100 kΩ, nur WavePlus) und das Ergebnis pro Kanal ins Protokoll schreiben.
-4. **Ruhesignal** prüfen, z. B. in der Biofeedback-Ansicht (Spalte *BFB* in der EMG-Konfiguration aktivieren): Bei entspanntem Arm liegt der Balken nahe 0 %. Beim Anspannen schlägt er deutlich aus.
-5. Erst wenn alle Kanäle diese Prüfung bestehen, EMG and Motion Tools schließen und die Aufnahme starten. Sonst: siehe [Fehlerbehebung](#fehlerbehebung).
+> **Ablauf im SDK:** `new DaqSystem()` → warten, bis `State == Idle` (der Receiver wird im Hintergrund initialisiert) → `ConfigureCapture` (2000 Hz) → `ConfigureSensor` je Sensor als `EMG_SENSOR` → `DataAvailable` abonnieren → `StartCapturing`. Die Werte in `Samples[sensor, sample]` sind laut SDK-Handbuch in µV.
+>
+> Das frühere Testskript `backend/test_aufnahme.py` nutzt noch `wavex` und die `.cfg` aus Schritt 4. Es gehört nicht mehr zur Einrichtung.
 
 > **Hintergrund:** Laut Datenblatt verarbeiten die Sensoren Eingangssignale bis **±3 mV**, mit 16 Bit und 2000 Hz, und haben einen **Hardware-Bandpass 1. Ordnung (10–500 Hz bzw. 10–1000 Hz)**. Ruhewerte nahe ±3000 µV bedeuten deshalb, dass der Kanal übersteuert ist. Das passiert fast immer, weil der Elektrodenkontakt fehlt, nicht wegen eines Muskelsignals. Der Hardwarefilter ersetzt außerdem nicht die Software-Filterung in Stufe 3, weil er nur flach abfällt (6 dB/Oktave).
 
@@ -276,16 +191,16 @@ Reihenfolge laut Cometa:
 
 ## Rohdaten aufnehmen
 
-Voraussetzung: Einrichtung bis [Schritt 5](#schritt-5--python-umgebung-einrichten), für echte Messungen zusätzlich Schritt 7 und 8.
+Voraussetzung: Einrichtung bis [Schritt 5](#schritt-5--python-umgebung-einrichten), für echte Messungen zusätzlich Schritt 7 und 8. Im Ordner `backend` mit aktivierter Umgebung:
 
 ```powershell
 python -m emg_tracking.acquisition.cli --duration 10 --name test
 ```
 
-Sensoren (`sensor_ids`), Event-Periode und maximale Anlaufzeit (`startup_timeout_s`) stehen in `config/acquisition.toml`; die Abtastrate ist fest 2000 Hz. Die `.cfg` aus Schritt 4 wird dafür nicht gebraucht.
-Jede Aufnahme landet in `data/raw/` als CSV plus Kopie der verwendeten Konfiguration.
+Sensoren (`sensor_ids`), Event-Periode, maximale Anlaufzeit (`startup_timeout_s`) und der Ort der SDK-Dateien (`[sdk]`) stehen in `backend/config/acquisition.toml`; die Abtastrate ist fest 2000 Hz. Die `.cfg` aus Schritt 4 wird dafür nicht gebraucht.
+Jede Aufnahme landet in `backend/data/raw/` als CSV plus Kopie der verwendeten Konfiguration.
 
-Nach dem Start wartet die CLI, bis **alle** gewählten Sensoren echte Messwerte liefern (Anlaufphase, ca. 5 s). Erst ab dann wird gespeichert, und erst ab dann zählt `--duration`. Sendet ein Sensor bis `startup_timeout_s` nicht, bricht die Aufnahme ab und nennt die betroffenen Sensoren.
+Nach dem Start wartet die CLI, bis **alle** gewählten Sensoren echte Messwerte liefern (Anlaufphase, ca. 5 s). Erst ab dann wird gespeichert, und erst ab dann zählt `--duration` (in Samples, nicht in Rechnerzeit). Sendet ein Sensor bis `startup_timeout_s` nicht, bricht die Aufnahme ab und nennt die betroffenen Sensoren.
 
 | Spalte | Bedeutung |
 |---|---|
@@ -293,6 +208,33 @@ Nach dem Start wartet die CLI, bis **alle** gewählten Sensoren echte Messwerte 
 | `host_time_ns` | PC-Zeit beim Eintreffen des SDK-Events (gleich für alle Zeilen eines Events) |
 | `sensor_<id>_uV` | Rohwert in µV, unverändert vom SDK, ohne Filter |
 | `usb_lost_packets` | vom SDK gemeldete USB-Paketverluste des Events |
+
+
+---
+
+## Messung mit Bewegungsvorgaben (Webapp)
+
+Für Trainingsdaten wird nicht frei aufgenommen, sondern nach einem **Messplan**. Die Webapp in [`frontend/`](frontend/README.md) verwaltet pro Proband (Schritt 7 „EMG-Messung“) beliebig viele benannte Messpläne (z. B. „Finger einzeln“, „Pinch“), und jeder lässt sich beliebig oft messen. Ein Messplan besteht aus einer Liste von Bewegungen mit je einer **Anzahl** (so oft direkt hintereinander, z. B. Pinch 3×), ein Intervall, die Zahl der **Durchläufe** des ganzen Ablaufs und einen Vorlauf. Bei Faust 1× und Pinch 3× mit 2 Durchläufen lautet die Folge: Faust, Pinch, Pinch, Pinch, Faust, Pinch, Pinch, Pinch. Vor dem Start wählst du die verwendete Elektroden-Platzierung (aus Schritt 6) und gibst optional eine Notiz ein; beides steht später in der Aufnahme. Nach dem Start piept die Webapp im Intervall und zeigt groß die Bewegung, die ab diesem Ton ausgeführt werden soll, mit Countdown und Vorschau auf die nächste.
+
+```powershell
+cd frontend
+npm start            # http://localhost:3000 → Proband öffnen → 7 · EMG-Messung
+```
+
+Der Node-Server startet dafür `python -m emg_tracking.acquisition.measurement.cli` im Ordner `backend` (Python aus `backend\.venv`, sonst `python` aus dem PATH; anderes Python per `$env:PYTHON`). Nur dieser Python-Prozess greift auf den Receiver zu. Es läuft immer höchstens eine Messung.
+
+**Takt:** Die Vorgaben werden in Samples gezählt, nicht im Browser: Vorgabe *k* beginnt bei Sample `(Vorlauf + k · Intervall) · 2000`, gezählt ab dem ersten echten Messwert. Die Labels liegen damit exakt auf der Zeitachse der Rohdaten. Der Piepton kommt etwas später (Event-Periode von 10 ms plus Übertragung), die Reaktion des Probanden nochmals später. Das muss die Vorverarbeitung berücksichtigen, z. B. indem sie den Anfang jedes Segments verwirft.
+
+Dateien in `backend/data/raw/<Proband-ID>/` (die ID aus der Webapp, nicht der Name); der Namensstamm ist `<Zeit>_<Name des Messplans>`, z. B. `2026-11-18_10-15-00_pinch`:
+
+| Datei | Inhalt |
+|---|---|
+| `<Stamm>.csv` | Rohdaten, Format wie bei der CLI |
+| `<Stamm>.cues.csv` | eine Zeile je Vorgabe: `cue_index`, `repetition` (Durchlauf), `movement`, `in_row`/`in_row_of` (z. B. 2/3 = zweiter von drei Pinches am Stück), `sample_index` (Beginn), `emitted_host_time_ns` (Zeitpunkt der Meldung an die Webapp) |
+| `<Stamm>.protocol.json` | Messplan (`label` = Name), `context` (Messplan-ID, Elektroden-Platzierung mit Anordnung und Elektrodenabstand, Notiz), Sensoren, SDK-Version, `end_sample_index` (Ende der letzten Vorgabe), Anzahl Samples, ob vollständig oder vorzeitig gestoppt |
+| `<Stamm>.config.toml` | Kopie der verwendeten Konfiguration |
+
+Eine Bewegung gilt von ihrem `sample_index` bis zum `sample_index` der nächsten Zeile bzw. bis `end_sample_index`. Samples vor der ersten Vorgabe sind der Vorlauf (Ruhe). Wird vor dem ersten Messwert gestoppt, bleibt nichts gespeichert.
 
 ---
 
@@ -309,10 +251,11 @@ Nach dem Start wartet die CLI, bis **alle** gewählten Sensoren echte Messwerte 
 | **Impedanz-Check schlägt fehl** / Ruhesignal sehr hoch (Biofeedback-Balken > 30 % in Ruhe, Werte nahe ±3000 µV) | Schlechter Kontakt zwischen Haut und Elektrode. Der Reihe nach prüfen: frische Elektroden (Haltbarkeit, Gel nicht ausgetrocknet), Hautvorbereitung nach Schritt 7.4, ca. 5 min warten, Druckknöpfe fest eingerastet, kein Zug an Kabeln oder Gehäuse (Schritt 8.3). Wird das Signal besser, wenn man den Sensor andrückt, ist es fast sicher ein Kontaktproblem. |
 | Problem bleibt bei einem Kanal trotz neuer Elektroden | Sensor mit einem funktionierenden Sensor **an derselben Stelle** tauschen. Wandert der Fehler mit dem Sensor mit, liegt es an der Hardware (Kabel, Druckknopf, Akku, LED blinkt grün = Akku schwach). Bleibt er an der Stelle, liegt es an Haut oder Position. |
 | Starkes 50-Hz-Brummen | Netzteil vom Laptop abziehen, Abstand zu Steckdosenleisten und Netzkabeln, Receiver ≥ 1,5 m vom Probanden (Schritt 7.3). Brummen schlägt besonders bei schlechtem Elektrodenkontakt durch. |
-| Python findet kein Gerät | EMG and Motion Tools noch geöffnet? Schließen. Sensoren eingeschaltet und geladen? Konfigurationspfad korrekt? |
-| Testskript zeigt nur flache Linien (jeder Kanal ein konstanter Wert) | Die Aufnahme lag in der Anlaufphase der Sensoren (ca. 5 s nach dem Start) oder `ConfigureCapture` fehlt. Skript aus Schritt 6 in der aktuellen Fassung verwenden. |
-| CLI: „Keine Messwerte nach … s. Ohne Messwerte: Sensor […]“ | Die genannten Sensoren senden nicht: ausgeschaltet, Akku leer, nicht mit dem Receiver gekoppelt, oder `sensor_ids` in `config/acquisition.toml` passt nicht zu den Kanälen aus Schritt 4. |
-| `pip install -e ".[dev]"` schlägt fehl | Python-Version ≥ 3.11 und 64-Bit prüfen (`python -c "import struct; print(struct.calcsize('P')*8)"` → `64`). |
+| „Receiver nach 10 s nicht bereit (Zustand NotConnected)“ | Receiver nicht per USB verbunden, Treiber nicht geladen (Schritt 3) oder EMG and Motion Tools noch geöffnet. Bei `InitializingError`/`CommunicationError`: Receiver ab- und wieder anstecken. |
+| „SDK-Dateien fehlen in …“ | Die DLLs aus dem Cometa-SDK liegen nicht in `backend/lib/cometa/` (Schritt 5) bzw. im Ordner aus `[sdk] dir`. |
+| Webapp: „Python ließ sich nicht starten“ oder „No module named emg_tracking“ | Der Server nimmt das falsche Python. `backend\.venv` anlegen und dort `pip install -e ".[dev]"` ausführen, oder vor `npm start` `$env:PYTHON` auf die passende `python.exe` setzen. |
+| CLI: „Keine Messwerte nach … s. Ohne Messwerte: Sensor […]“ | Die genannten Sensoren senden nicht: ausgeschaltet, Akku leer, nicht mit dem Receiver gekoppelt, oder `sensor_ids` in `backend/config/acquisition.toml` passt nicht zu den Kanälen aus Schritt 4. |
+| `pip install -e ".[dev]"` schlägt fehl | Im Ordner `backend` ausführen (dort liegt `pyproject.toml`). Python-Version ≥ 3.11 und 64-Bit prüfen (`python -c "import struct; print(struct.calcsize('P')*8)"` → `64`). |
 
 ---
 
@@ -329,7 +272,8 @@ Treiber, SDK-Bibliotheken (`Waveplus.DaqSys.dll`, `CyUSB.dll` usw.) und die Come
 - Cometa: *EMG and Motion Tools – Software Manual*, Rev. 08.15, 11/03/2025 (Kap. 8.3, 12, 21)
 - Ambu: [BlueSensor-Katalog](https://cdn.shopify.com/s/files/1/1046/1086/files/Ambu-BlueSensor-Catalog.pdf) (Elektrodengrößen)
 - SENIAM: [Empfehlungen zur Elektrodenplatzierung für Oberflächen-EMG](http://www.seniam.org/)
-- Cometa: Python-Paket [`wavex` auf PyPI](https://pypi.org/project/wavex/)
+- Cometa: *Waveplus.Daq.NET library*, Rel. 3.0.0.2 (Handbuch, 29.07.2016) und SDK-Paket `Waveplus.Daq_SDK_5.0.7_2020_04_16` mit C#-Beispiel (`WaveplusDaqExampleForm.cs`); vom Hersteller, nicht öffentlich
+- [pythonnet](https://pythonnet.github.io/) (Python ↔ .NET)
 - Qualisys: [Cometa – Anforderungen und Treiberinstallation](https://docs.qualisys.com/qtm/content/integrations/emgs/cometa_qdev_requirements.htm)
 - D. Bitzer: *Analyse und Klassifikation von EMG-Signalen*, Studienarbeit, DHBW Karlsruhe (Kap. 4.1–4.3, Anhang 4)
 - Ursprüngliche Repositories: [SST-EMG-Sensor](https://github.com/db1tz3r/SST-EMG-Sensor), [EMG_Analyse](https://github.com/db1tz3r/EMG_Analyse)

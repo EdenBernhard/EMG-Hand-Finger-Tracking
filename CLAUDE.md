@@ -7,7 +7,7 @@ Dieses Repo ist ein Neubau in Python. Die Vorgänger-Repos waren in C#/Java (EMG
 ## Architektur
 Ziel: Hand- und Fingerbewegungen anhand der gemessenen EMG-Werte per ML erkennen und vorhersagen. Die Pipeline besteht aus vier Stufen, in dieser Reihenfolge:
 
-1. **Erfassung** – Rohdaten vom Sensor auslesen (aktuell `src/emg_tracking/acquisition/`)
+1. **Erfassung** – Rohdaten vom Sensor auslesen (aktuell `backend/src/emg_tracking/acquisition/`)
 2. **Vorverarbeitung** – Daten bereinigen, filtern und normalisieren
 3. **ML** – Merkmale/Modelle, Training, Evaluation
 4. **Ausgabe** – Vorhersage und Übersetzung in Aktionen (Computeraktionen, Roboterhand)
@@ -17,6 +17,11 @@ Regeln für jeden Code, den Claude schreibt oder ändert:
 - **Stufen sauber trennen:** Jeder Code gehört zu genau einer Stufe. Eine Stufe hängt nur von der vorherigen ab (über klar definierte Datenstrukturen), nie umgekehrt. So vermischt z. B. die Erfassung keine Filterung und das ML keine Hardwarezugriffe.
 - **Wenige Abhängigkeiten:** Neue Pakete nur, wenn sie klar nötig sind. Die Standardbibliothek wird bevorzugt, und Abhängigkeiten bleiben klein und übersichtlich.
 - Generierten Code vor dem Abschluss immer gegen diese Regeln prüfen.
+
+## Repo-Struktur
+- `backend/` – Python-Paket `emg_tracking` mit der Pipeline (Erfassung → Vorverarbeitung → ML → Ausgabe), dazu Tests, Konfiguration, Treiber und Aufnahmen (`backend/data/`, nicht versioniert). Alles zum Auslesen der Sensoren liegt hier.
+- `frontend/` – Webapp pro Proband (Node.js, nur Standardbibliothek): Elektrodenplatzierung und Messung mit Bewegungsvorgaben (Piepton im Intervall, Anzeige der Bewegung). **Kein Teil der Pipeline** und ohne eigenen Zugriff auf die Sensoren: Messungen startet der Node-Server als Python-Prozess im Backend (`emg_tracking.acquisition.measurement.cli`), nur dieser liest den Receiver. Für den Frontend-Code gelten dieselben Regeln (eine Aufgabe pro Datei, keine Magic Numbers, wenige Abhängigkeiten).
+- `docs/` – Fahrplan und Session-Protokolle.
 
 ## Leitlinien
 - **Datenqualität & Reproduzierbarkeit zuerst:** feste Seeds, versionierte Konfiguration (Abtastrate, Filter, Fensterung), keine Magic Numbers im Code.

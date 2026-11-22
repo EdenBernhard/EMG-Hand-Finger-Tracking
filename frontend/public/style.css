@@ -113,3 +113,9 @@ th, td { text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--
 .impedanz-sensor { display: flex; flex-direction: column; min-width: 8rem; padding: .5rem .75rem; border-radius: 8px; font-size: .9rem; }
 .impedanz-sensor.ok { background: var(--akzent-hell); color: #085041; }
 .impedanz-sensor.schlecht { background: var(--warn-hell); color: var(--warn); }
+
+/* Fotos vom Handy: QR-Code am Laptop, große Knöpfe auf der Handy-Seite */
+.handy-qr { width: min(240px, 100%); margin: .75rem 0; }
+.handy-qr svg { width: 100%; height: auto; display: block; }
+.handy { padding: 1rem; }
+.handy-knopf { display: block; text-align: center; padding: 1rem; font-size: 1.1rem; margin: .5rem 0; }

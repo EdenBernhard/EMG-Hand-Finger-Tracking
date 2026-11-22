@@ -22,6 +22,8 @@ export const KONFIGURATION = {
     argumente: ["-m", "emg_tracking.acquisition.measurement.cli"],
     arbeitsordner: BACKEND_ROOT,
   },
+  // Fotos vom Handy: so lange gilt ein QR-Code bzw. Link
+  handy: { gueltigMin: 30 },
   // C3D-Dateien aus EMG and Motion Tools: Upload als Rohdaten, Konvertierung in CSV durch das Backend
   c3dImport: {
     programm: python,

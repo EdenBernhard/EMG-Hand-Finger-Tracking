@@ -21,6 +21,8 @@ export const api = {
   speichere: (id, daten) => anfrage(`/api/probanden/${id}`, { methode: "PUT", daten }),
   loesche: (id) => anfrage(`/api/probanden/${id}`, { methode: "DELETE" }),
   ladeBildHoch: (id, seite, bild) => anfrage(`/api/probanden/${id}/bild/${seite}`, { methode: "POST", daten: bild }),
+  // Zugang für die Handy-Seite (Fotos per QR-Code); gibt { urls, ablauf } zurück
+  erstelleHandyZugang: (id) => anfrage(`/api/probanden/${id}/handy-zugang`, { methode: "POST" }),
   // auftrag: { messplanId, platzierungId, notiz }
   starteMessung: (id, auftrag) => anfrage(`/api/probanden/${id}/messung`, { methode: "POST", daten: auftrag }),
   // C3D-Datei aus EMG and Motion Tools; angaben: { platzierungId, notiz }. Gibt die neue Aufnahme zurück.

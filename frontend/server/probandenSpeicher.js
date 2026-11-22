@@ -86,7 +86,9 @@ export class ProbandenSpeicher {
         p[k] = eingabe[k];
       }
       for (const s of SEITEN) {
-        if (eingabe[s] && typeof eingabe[s].punkte === "object") p[s] = { ...p[s], punkte: eingabe[s].punkte };
+        // Punkte gehören zu genau einem Foto: Wurde es inzwischen ersetzt (z. B. vom Handy), sind sie veraltet
+        const aktuell = eingabe[s]?.version === p[s]?.version;
+        if (eingabe[s] && typeof eingabe[s].punkte === "object" && aktuell) p[s] = { ...p[s], punkte: eingabe[s].punkte };
       }
       return this.#speichere(p);
     });

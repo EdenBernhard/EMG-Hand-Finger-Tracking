@@ -22,4 +22,12 @@ export const KONFIGURATION = {
     argumente: ["-m", "emg_tracking.acquisition.measurement.cli"],
     arbeitsordner: BACKEND_ROOT,
   },
+  // C3D-Dateien aus EMG and Motion Tools: Upload als Rohdaten, Konvertierung in CSV durch das Backend
+  c3dImport: {
+    programm: python,
+    argumente: ["-m", "emg_tracking.acquisition.c3d_import.cli"],
+    arbeitsordner: BACKEND_ROOT,
+    maxBytes: 1024 * 1024 * 1024,   // 1 GB; 16 Kanäle × 2000 Hz × 4 Byte sind rund 7,7 MB pro Minute
+    zeitlimitMs: 5 * 60_000,
+  },
 };

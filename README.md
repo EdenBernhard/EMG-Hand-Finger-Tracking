@@ -223,6 +223,8 @@ npm start            # http://localhost:3000 → Proband öffnen → 7 · EMG-Me
 
 Der Node-Server startet dafür `python -m emg_tracking.acquisition.measurement.cli` im Ordner `backend` (Python aus `backend\.venv`, sonst `python` aus dem PATH; anderes Python per `$env:PYTHON`). Nur dieser Python-Prozess greift auf den Receiver zu. Es läuft immer höchstens eine Messung.
 
+**Impedanz-Check:** Vor jeder Messung prüft der Python-Prozess die Elektroden-Impedanz aller Sensoren (`DaqSystem.CheckElectrodeImpedance` des SDK). Das SDK liefert je Sensor nur *bestanden*, *nicht bestanden* oder *nicht geprüft*, keinen Widerstandswert; laut Handbuch von EMG and Motion Tools liegt die Schwelle werkseitig bei 100 kΩ. Die Webapp zeigt das Ergebnis je Sensor an. Bestehen alle, startet die Aufnahme direkt. Sonst wartet die Messung: **Abbrechen** (Elektroden prüfen, siehe [Fehlerbehebung](#fehlerbehebung), dann neu starten) oder **Trotzdem messen**. Das Ergebnis steht in `protocol.json` unter `impedance` (je Sensor, `passed`, `continued_despite_failure`) und in der Tabelle der bisherigen Messungen. Abschalten lässt sich der Check in `backend/config/acquisition.toml` mit `[impedance] check_before_measurement = false`.
+
 **Takt:** Die Vorgaben werden in Samples gezählt, nicht im Browser: Vorgabe *k* beginnt bei Sample `(Vorlauf + k · Intervall) · 2000`, gezählt ab dem ersten echten Messwert. Die Labels liegen damit exakt auf der Zeitachse der Rohdaten. Der Piepton kommt etwas später (Event-Periode von 10 ms plus Übertragung), die Reaktion des Probanden nochmals später. Das muss die Vorverarbeitung berücksichtigen, z. B. indem sie den Anfang jedes Segments verwirft.
 
 Dateien in `data/probanden/<Proband-ID>/` im Hauptordner, zusammen mit `proband.json` und den Fotos der Webapp (die ID aus der Webapp, nicht der Name); der Namensstamm ist `<Zeit>_<Name des Messplans>`, z. B. `2026-11-18_10-15-00_pinch`:
@@ -235,6 +237,28 @@ Dateien in `data/probanden/<Proband-ID>/` im Hauptordner, zusammen mit `proband.
 | `<Stamm>.config.toml` | Kopie der verwendeten Konfiguration |
 
 Eine Bewegung gilt von ihrem `sample_index` bis zum `sample_index` der nächsten Zeile bzw. bis `end_sample_index`. Samples vor der ersten Vorgabe sind der Vorlauf (Ruhe). Wird vor dem ersten Messwert gestoppt, bleibt nichts gespeichert.
+
+---
+
+## C3D-Dateien aus EMG and Motion Tools importieren
+
+Aufnahmen, die direkt mit EMG and Motion Tools gemacht und als `.c3d` gespeichert wurden, lassen sich einem Probanden nachträglich zuordnen: in der Webapp unter **7 · EMG-Messung → C3D-Dateien importieren** eine oder mehrere Dateien wählen, optional Platzierung und Notiz angeben, hochladen. Sie erscheinen danach unter „Bisherige Messungen“ als „C3D-Import“.
+
+Voraussetzung ist das optionale Paket `ezc3d` (im Ordner `backend`): `pip install -e ".[c3d]"`. Der Node-Server speichert den Upload temporär und startet `python -m emg_tracking.acquisition.c3d_import.cli`; ohne Webapp geht das auch direkt:
+
+```powershell
+python -m emg_tracking.acquisition.c3d_import.cli --subject <Proband-ID> "D:\Aufnahmen\Testlauf_2.c3d"
+```
+
+Dateien in `data/probanden/<Proband-ID>/`, Stamm `<Importzeit>_<Originalname>`:
+
+| Datei | Inhalt |
+|---|---|
+| `<Stamm>.csv` | Analogkanäle: `sample_index`, `time_s` (= Index / Abtastrate), je Kanal eine Spalte mit dem Kanalnamen aus der C3D-Datei (z. B. `EMG 5`), Werte wie in der Datei skaliert |
+| `<Stamm>.c3d` | unveränderte Originaldatei |
+| `<Stamm>.protocol.json` | `source: "c3d"`, Originalname, Abtastrate (aus `ANALOG:RATE` der Datei), Kanäle mit Einheit, Anzahl Samples, `context` (Platzierung, Notiz) |
+
+Unterschiede zu Messungen der Webapp: keine `.cues.csv` (keine Bewegungsvorgaben), Spaltennamen und Einheit stammen aus EMG and Motion Tools statt `sensor_<id>_uV`. Die Vorverarbeitung muss das über `source` in `protocol.json` unterscheiden.
 
 ---
 

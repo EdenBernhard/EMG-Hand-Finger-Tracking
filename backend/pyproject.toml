@@ -14,6 +14,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+c3d = ["ezc3d>=1.5"]  # Import von C3D-Dateien aus EMG and Motion Tools (emg_tracking.acquisition.c3d_import)
 
 [tool.setuptools.packages.find]
 where = ["src"]

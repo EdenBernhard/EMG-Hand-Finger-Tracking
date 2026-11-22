@@ -3,12 +3,15 @@
 import { api } from "../api.js";
 import { esc, zahlText } from "../hilfen.js";
 import { ton } from "../ton.js";
+import { impedanzHtml } from "./impedanzAnzeige.js";
 
 const ANZEIGE_TAKT_MS = 100;
 const MS_PRO_S = 1000;
 
 const PHASEN = {
   start: "Starte die Messung …",
+  impedanz: "Prüfe die Impedanz der Elektroden …",
+  impedanz_entscheidung: "Impedanz-Check nicht bestanden – wie weiter?",
   warten: "Verbinde mit dem Receiver und warte, bis alle Sensoren senden (ca. 5 s) …",
   stoppt: "Messung wird beendet …",
 };
@@ -21,10 +24,12 @@ export function erstelleLiveAnzeige(el, kontext = {}) {
     <div class="karte live">
       <h2 style="margin-top:0">${esc(kopf || "Messung")}</h2>
       <p class="klein" id="lv-phase"></p>
+      <div id="lv-impedanz"></div>
       <div class="live-bewegung" id="lv-bewegung">–</div>
       <div class="live-balken"><div id="lv-balken"></div></div>
       <p class="live-zeile"><span id="lv-rest"></span><span id="lv-naechste"></span></p>
       <div class="reihe">
+        <button class="haupt" id="lv-trotzdem" hidden>Trotzdem messen</button>
         <button class="gefahr" id="lv-stopp">Messung stoppen</button>
         <button id="lv-ton" hidden>Ton aktivieren</button>
       </div>
@@ -59,13 +64,31 @@ export function erstelleLiveAnzeige(el, kontext = {}) {
     }
   });
   $("#lv-ton").addEventListener("click", () => ton.freigeben());
+  $("#lv-trotzdem").addEventListener("click", async () => {
+    $("#lv-trotzdem").disabled = true;
+    try {
+      await api.setzeMessungFort();
+    } catch (e) {
+      $("#lv-fehler").textContent = e.message;
+      $("#lv-trotzdem").disabled = false;
+    }
+  });
 
   return {
     phase(name) {
       $("#lv-phase").textContent = PHASEN[name] || "";
       if (name === "stoppt") $("#lv-stopp").disabled = true;
+      const entscheiden = name === "impedanz_entscheidung";
+      $("#lv-trotzdem").hidden = !entscheiden;
+      $("#lv-trotzdem").disabled = false;
+      $("#lv-stopp").textContent = entscheiden ? "Abbrechen" : "Messung stoppen";
+    },
+    impedanz(ereignis) {
+      $("#lv-impedanz").innerHTML = impedanzHtml(ereignis);
+      this.phase(ereignis.passed ? "impedanz" : "impedanz_entscheidung");
     },
     aufnahme({ first_cue_in_s, total_cues }) {
+      $("#lv-impedanz").innerHTML = "";   // Platz für die Bewegung; das Ergebnis steht später in der Tabelle
       $("#lv-phase").textContent = `Aufnahme läuft · ${total_cues} Vorgaben`;
       $("#lv-bewegung").textContent = "Ruhe – gleich geht's los";
       $("#lv-naechste").textContent = "";

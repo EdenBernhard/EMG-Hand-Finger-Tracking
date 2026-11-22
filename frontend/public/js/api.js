@@ -1,10 +1,12 @@
 // Zugriff auf die Server-API.
 
-async function anfrage(pfad, { methode = "GET", daten } = {}) {
+// daten: wird als JSON gesendet; datei: File/Blob, unverändert als Rumpf
+async function anfrage(pfad, { methode = "GET", daten, datei } = {}) {
   const r = await fetch(pfad, {
     method: methode,
-    headers: daten ? { "Content-Type": "application/json" } : undefined,
-    body: daten ? JSON.stringify(daten) : undefined,
+    headers: datei ? { "Content-Type": "application/octet-stream" }
+      : daten ? { "Content-Type": "application/json" } : undefined,
+    body: datei || (daten ? JSON.stringify(daten) : undefined),
   });
   if (r.status === 204) return null;
   const antwort = await r.json().catch(() => ({}));
@@ -21,6 +23,13 @@ export const api = {
   ladeBildHoch: (id, seite, bild) => anfrage(`/api/probanden/${id}/bild/${seite}`, { methode: "POST", daten: bild }),
   // auftrag: { messplanId, platzierungId, notiz }
   starteMessung: (id, auftrag) => anfrage(`/api/probanden/${id}/messung`, { methode: "POST", daten: auftrag }),
+  // C3D-Datei aus EMG and Motion Tools; angaben: { platzierungId, notiz }. Gibt die neue Aufnahme zurück.
+  importiereC3d: (id, datei, { platzierungId, notiz } = {}) => {
+    const frage = new URLSearchParams({ datei: datei.name, platzierungId: platzierungId || "", notiz: notiz || "" });
+    return anfrage(`/api/probanden/${id}/import-c3d?${frage}`, { methode: "POST", datei });
+  },
+  // nach nicht bestandenem Impedanz-Check trotzdem messen
+  setzeMessungFort: () => anfrage("/api/messung/fortsetzen", { methode: "POST" }),
   stoppeMessung: () => anfrage("/api/messung/stopp", { methode: "POST" }),
   // Ruft beiEreignis mit jedem Ereignis der Messung auf (zuerst den aktuellen Zustand); gibt eine Abmeldefunktion zurück
   abonniereMessung(beiEreignis) {

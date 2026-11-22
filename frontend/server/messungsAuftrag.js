@@ -5,18 +5,20 @@ import { HttpFehler } from "./http.js";
 
 const MAX_NOTIZ = 500;
 
+// Platzierung und Notiz, wie sie mit einer Aufnahme gespeichert werden (auch für importierte Dateien)
+export function aufnahmeKontext(proband, { platzierungId, notiz } = {}) {
+  const pl = platzierungId ? proband.platzierungen.find((x) => x.id === platzierungId) : null;
+  if (platzierungId && !pl) throw new HttpFehler(400, "Platzierung nicht gefunden.");
+  return {
+    platzierung: pl && { id: pl.id, name: pl.name, variante: pl.variante, elektrodenAbstand: pl.elektrodenAbstand },
+    notiz: String(notiz || "").trim().slice(0, MAX_NOTIZ),
+  };
+}
+
 export function erstelleAuftrag(proband, { messplanId, platzierungId, notiz } = {}) {
   const eintrag = proband.messplaene.find((m) => m.id === messplanId);
   if (!eintrag) throw new HttpFehler(400, "Messplan nicht gefunden.");
   const { id, name, ...plan } = eintrag;
   if (!plan.bewegungen.length) throw new HttpFehler(400, "Bitte mindestens eine Bewegung angeben.");
-
-  const pl = platzierungId ? proband.platzierungen.find((x) => x.id === platzierungId) : null;
-  if (platzierungId && !pl) throw new HttpFehler(400, "Platzierung nicht gefunden.");
-  const kontext = {
-    messplan: { id, name },
-    platzierung: pl && { id: pl.id, name: pl.name, variante: pl.variante, elektrodenAbstand: pl.elektrodenAbstand },
-    notiz: String(notiz || "").trim().slice(0, MAX_NOTIZ),
-  };
-  return { plan, kontext };
+  return { plan, kontext: { messplan: { id, name }, ...aufnahmeKontext(proband, { platzierungId, notiz }) } };
 }

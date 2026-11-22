@@ -10,6 +10,7 @@ import { zeigeMessplanEditor } from "./messplanEditor.js";
 import { zeigeMessungStart } from "./messungStart.js";
 import { erstelleLiveAnzeige } from "./messungLive.js";
 import { aufnahmenListe } from "./aufnahmenListe.js";
+import { zeigeC3dImport } from "./c3dImportKarte.js";
 
 const ergebnisText = (e) => e.saved
   ? `Messung gespeichert: ${e.recording} · ${dauerText(e.duration_s)} · ${e.cues} Vorgaben` +
@@ -23,8 +24,15 @@ export function zeigeMessung(el, messplanId) {
   p.aufnahmen = Array.isArray(p.aufnahmen) ? p.aufnahmen : [];
   const eintrag = p.messplaene.find((m) => m.id === messplanId) || p.messplaene[0];
 
-  el.innerHTML = `<p id="ms-meldung"></p><div id="ms-haupt"></div><div id="ms-liste">${aufnahmenListe(p)}</div>`;
+  el.innerHTML = `<p id="ms-meldung"></p><div id="ms-haupt"></div><div id="ms-import"></div>
+    <div id="ms-liste">${aufnahmenListe(p)}</div>`;
   const haupt = el.querySelector("#ms-haupt");
+  zeigeC3dImport(el.querySelector("#ms-import"), p, {
+    beiImport: (aufnahme) => {
+      p.aufnahmen.push(aufnahme);
+      el.querySelector("#ms-liste").innerHTML = aufnahmenListe(p);
+    },
+  });
   const meldung = (text, klasse = "info") => {
     const m = el.querySelector("#ms-meldung");
     m.className = text ? klasse : "";
@@ -51,6 +59,7 @@ export function zeigeMessung(el, messplanId) {
       zustand = e;
       if (!meine()) return zeigeVorbereitung(e.laeuft);
       zeigeLive();
+      if (e.impedanz) live.impedanz(e.impedanz);
       live.phase(e.phase);
       if (e.vorgabe) live.vorgabe(e.vorgabe, { anzahl: e.anzahl, mitTon: false });
       else if (e.aufnahme) live.aufnahme(e.aufnahme);
@@ -64,6 +73,8 @@ export function zeigeMessung(el, messplanId) {
       }
       return;
     }
+    if (e.type === "checking_impedance") live.phase("impedanz");
+    if (e.type === "impedance") live.impedanz(e);
     if (e.type === "waiting_for_sensors") live.phase("warten");
     if (e.type === "recording") live.aufnahme(e);
     if (e.type === "cue") live.vorgabe(e, { anzahl: zustand.anzahl });

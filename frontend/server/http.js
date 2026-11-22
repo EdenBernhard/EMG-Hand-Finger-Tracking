@@ -1,4 +1,5 @@
 // Kleine Hilfen für Anfragen und Antworten mit node:http.
+import fs from "node:fs";
 
 export class HttpFehler extends Error {
   constructor(status, meldung) {
@@ -16,6 +17,33 @@ export function sendeJson(res, status, daten) {
 export function sendeLeer(res, status = 204) {
   res.writeHead(status);
   res.end();
+}
+
+// Schreibt den Rumpf der Anfrage unverändert in eine Datei (für große Uploads, ohne Base64)
+export function speichereRumpf(req, datei, maxBytes) {
+  return new Promise((ok, fehler) => {
+    const ziel = fs.createWriteStream(datei);
+    let groesse = 0;
+    let abgebrochen = false;
+    const abbruch = (e) => {
+      if (abgebrochen) return;
+      abgebrochen = true;
+      req.unpipe(ziel);
+      ziel.destroy();
+      req.resume();   // Rest verwerfen, damit die Antwort noch ankommt
+      fehler(e);
+    };
+    req.on("data", (stueck) => {
+      groesse += stueck.length;
+      if (groesse > maxBytes) abbruch(new HttpFehler(413, "Die Datei ist zu groß."));
+    });
+    req.on("error", abbruch);
+    ziel.on("error", abbruch);
+    ziel.on("finish", () => {
+      if (!abgebrochen) groesse ? ok(groesse) : fehler(new HttpFehler(400, "Die Datei ist leer."));
+    });
+    req.pipe(ziel);
+  });
 }
 
 export function leseJson(req, maxBytes) {

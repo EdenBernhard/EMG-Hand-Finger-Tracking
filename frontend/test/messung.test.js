@@ -94,7 +94,8 @@ test("Messung läuft durch, Ereignisse kommen an, Aufnahme wird beim Probanden g
   });
   assert.equal(start.status, 202);
   assert.deepEqual(liste.map((e) => e.type),
-    ["state", "state", "waiting_for_sensors", "recording", "cue", "cue", "cue", "cue", "cue", "cue", "finished"]);
+    ["state", "state", "checking_impedance", "impedance", "waiting_for_sensors", "recording",
+      "cue", "cue", "cue", "cue", "cue", "cue", "finished"]);
   assert.equal(liste[0].laeuft, false);
   assert.equal(liste[1].probandId, id);
   assert.equal(liste[1].kontext.messplan.name, "Finger");
@@ -113,6 +114,7 @@ test("Messung läuft durch, Ereignisse kommen an, Aufnahme wird beim Probanden g
   assert.deepEqual(a.messplan, { id: plaene[0].id, name: "Finger" });
   assert.equal(a.platzierung.id, platzierung.id);
   assert.equal(a.notiz, "Sitzung 2");
+  assert.deepEqual(a.impedanz, { bestanden: true, nichtBestanden: [], trotzdemGemessen: false });
   assert.deepEqual(a.plan.bewegungen, [{ name: "Faust", anzahl: 1 }, { name: "Pinch", anzahl: 2 }]);
   assert.equal((await (await fetch(`${basis}/api/messung`)).json()).laeuft, false);
 
@@ -157,6 +159,40 @@ test("Stopp beendet die Messung; nur eine Messung gleichzeitig", async () => {
   assert.equal(fertig.saved, false);
   assert.equal((await speicher.lade(id)).aufnahmen.length, 0);
   assert.equal((await post("/api/messung/stopp")).status, 409, "danach läuft keine Messung mehr");
+});
+
+test("Nicht bestandener Impedanz-Check wartet auf „Trotzdem messen“", async () => {
+  const { id, plaene } = await probandMitPlaenen();
+  process.env.FAKE_MODUS = "impedanz_fehler";
+  assert.equal((await post("/api/messung/fortsetzen")).status, 409, "ohne Messung nichts fortzusetzen");
+  let zustand;
+  const liste = await ereignisse(async () => {
+    await post(`/api/probanden/${id}/messung`, { messplanId: plaene[0].id });
+    for (;;) {   // warten, bis Python das Ergebnis gemeldet hat
+      zustand = await (await fetch(`${basis}/api/messung`)).json();
+      if (zustand.phase === "impedanz_entscheidung") break;
+      await new Promise((ok) => setTimeout(ok, 20));
+    }
+    assert.equal((await post("/api/messung/fortsetzen")).status, 202);
+  });
+  assert.deepEqual(zustand.impedanz.results.map((r) => r.passed), [true, false]);
+  assert.ok(liste.some((e) => e.type === "cue"), "nach „Trotzdem messen“ läuft die Messung");
+  const a = (await speicher.lade(id)).aufnahmen.at(-1);
+  assert.deepEqual(a.impedanz, { bestanden: false, nichtBestanden: [2], trotzdemGemessen: true });
+});
+
+test("Abbrechen nach nicht bestandenem Impedanz-Check speichert nichts", async () => {
+  const { id, plaene } = await probandMitPlaenen();
+  process.env.FAKE_MODUS = "impedanz_fehler";
+  const liste = await ereignisse(async () => {
+    await post(`/api/probanden/${id}/messung`, { messplanId: plaene[0].id });
+    while ((await (await fetch(`${basis}/api/messung`)).json()).phase !== "impedanz_entscheidung") {
+      await new Promise((ok) => setTimeout(ok, 20));
+    }
+    assert.equal((await post("/api/messung/stopp")).status, 202);
+  });
+  assert.equal(liste.at(-1).saved, false);
+  assert.equal((await speicher.lade(id)).aufnahmen.length, 0);
 });
 
 test("Absturz von Python wird als Fehler gemeldet", async () => {

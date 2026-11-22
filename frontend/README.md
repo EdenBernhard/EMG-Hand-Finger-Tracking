@@ -23,7 +23,7 @@ Probanden-Daten liegen in `data/probanden/<id>/` im Hauptordner (`proband.json` 
 4. **Foto Innenseite** – hochladen, Kreuze und Daumen anklicken
 5. **Foto Oberseite** – hochladen, Kreuze anklicken
 6. **Platzierungen** – beliebig viele Berechnungen pro Proband auf Basis derselben Maße und Fotos, jeweils mit eigener Anordnung, eigenem Elektrodenabstand und Notiz. Je Platzierung: Fotos mit Elektrodenpaaren (als PNG herunterladbar), Maßband-Anleitung und Testbewegung je Kanal, druckbar.
-7. **EMG-Messung** – beliebig viele benannte Messpläne pro Proband (Tabs, kopierbar), jeder beliebig oft messbar. Ein Messplan: Bewegungen mit Anzahl (so oft direkt hintereinander, z. B. Pinch 3×), Intervall, Durchläufe des ganzen Ablaufs, Vorlauf. Vor dem Start Elektroden-Platzierung wählen und optional eine Notiz eingeben; beides wird mit der Aufnahme gespeichert. Während der Messung: aktuelle Bewegung groß, Countdown bis zum nächsten Piepton, Vorschau, Stopp. Darunter die bisherigen Messungen des Probanden.
+7. **EMG-Messung** – beliebig viele benannte Messpläne pro Proband (Tabs, kopierbar), jeder beliebig oft messbar. Ein Messplan: Bewegungen mit Anzahl (so oft direkt hintereinander, z. B. Pinch 3×), Intervall, Durchläufe des ganzen Ablaufs, Vorlauf. Vor dem Start Elektroden-Platzierung wählen und optional eine Notiz eingeben; beides wird mit der Aufnahme gespeichert. Während der Messung: aktuelle Bewegung groß, Countdown bis zum nächsten Piepton, Vorschau, Stopp. Darunter Import von C3D-Dateien aus EMG and Motion Tools (werden vom Backend in CSV umgewandelt, siehe README im Hauptordner, „C3D-Dateien … importieren“) und die bisherigen Messungen des Probanden.
 
 Den Takt der Messung gibt Python vor (gezählt in Samples, siehe README im Hauptordner, „Messung mit Bewegungsvorgaben“). Der Browser zeigt nur an und piept; deshalb verschieben gedrosselte Browser-Tabs die Labels nicht. Ton erst nach einem Klick: Browser erlauben Audio nur nach einer Nutzeraktion, notfalls erscheint der Knopf „Ton aktivieren“.
 
@@ -40,6 +40,7 @@ frontend/
 │   ├── probandenSpeicher.js   Ablage der Probanden und Fotos
 │   ├── messungSteuerung.js    startet/stoppt den Python-Messprozess, hält dessen Zustand
 │   ├── messungsAuftrag.js     Messplan + Platzierung + Notiz aus dem gespeicherten Probanden
+│   ├── c3dImport.js           Upload einer C3D-Datei, Konvertierung durch den Python-Prozess
 │   ├── ereignisStrom.js       Server-Sent Events: Messereignisse an den Browser
 │   ├── statischeDateien.js    Auslieferung von public/
 │   └── http.js                JSON lesen/senden, Fehlerklasse
@@ -53,7 +54,7 @@ frontend/
 │       ├── ansichten/         je Schritt eine Datei
 │       └── zeichnen/          Canvas: Punkte, Elektroden, Download
 ├── test/                      node:test
-└── testhilfen/                Ersatz für den Python-Messprozess in den Tests
+└── testhilfen/                Ersatz für die Python-Prozesse (Messung, C3D-Import) in den Tests
 ```
 
 ## Berechnung

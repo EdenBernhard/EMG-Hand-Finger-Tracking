@@ -83,6 +83,16 @@ export class MessungSteuerung {
     return this.#zustand;
   }
 
+  // Nach einem nicht bestandenen Impedanz-Check trotzdem messen
+  setzeFort() {
+    if (!this.#prozess || this.#zustand.phase !== "impedanz_entscheidung") {
+      throw new HttpFehler(409, "Es wartet keine Messung auf eine Entscheidung.");
+    }
+    this.#prozess.stdin.write(JSON.stringify({ command: "continue" }) + "\n");
+    this.#zustand = { ...this.#zustand, phase: "warten" };
+    this.#melde({ type: "state", ...this.#zustand });
+  }
+
   stoppe() {
     if (!this.#prozess) throw new HttpFehler(409, "Es läuft keine Messung.");
     this.#prozess.stdin.write(JSON.stringify({ command: "stop" }) + "\n");
@@ -102,6 +112,10 @@ export class MessungSteuerung {
       return;
     }
     if (ereignis.type === "finished" || ereignis.type === "error") return this.#beende(ereignis, probandId, plan, kontext);
+    if (ereignis.type === "checking_impedance") this.#zustand = { ...this.#zustand, phase: "impedanz" };
+    if (ereignis.type === "impedance") {
+      this.#zustand = { ...this.#zustand, impedanz: ereignis, phase: ereignis.passed ? "impedanz" : "impedanz_entscheidung" };
+    }
     if (ereignis.type === "waiting_for_sensors") this.#zustand = { ...this.#zustand, phase: "warten" };
     if (ereignis.type === "recording") this.#zustand = { ...this.#zustand, phase: "aufnahme", aufnahme: ereignis };
     if (ereignis.type === "cue") this.#zustand = { ...this.#zustand, vorgabe: ereignis };

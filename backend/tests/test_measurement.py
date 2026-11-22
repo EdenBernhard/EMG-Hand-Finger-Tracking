@@ -18,10 +18,11 @@ from emg_tracking.acquisition.measurement.event_stream import EventStream
 from emg_tracking.acquisition.measurement.measurement import Measurement
 from emg_tracking.acquisition.measurement.protocol import MeasurementProtocol, Movement
 from emg_tracking.acquisition.measurement.recording_name import recording_name
-from emg_tracking.acquisition.measurement.stop_listener import listen_for_stop
+from emg_tracking.acquisition.measurement.command_listener import listen_for_commands
 from emg_tracking.acquisition.raw_block import RawBlock
 from emg_tracking.acquisition.recording import record
-from fake_sdk import FakeReceiver
+from emg_tracking.config import load_config
+from fake_sdk import FakeReceiver, fake_sdk
 
 FS = 2000
 PLAN = {"subject_id": "74a248d61c25", "movements": ["Faust", "Ruhe"], "interval_s": 0.01, "repetitions": 2,
@@ -108,9 +109,9 @@ def test_event_stream_is_ascii_json_lines():
 
 
 @pytest.mark.parametrize("data", [b'{"command": "stop"}\n', b"kaputt\n{}\n", b""])
-def test_stop_listener_stops_on_command_or_end_of_input(data):
+def test_command_listener_stops_on_command_or_end_of_input(data):
     stop = threading.Event()
-    listen_for_stop(io.BytesIO(data), stop).join(timeout=1)
+    listen_for_commands(io.BytesIO(data), stop).join(timeout=1)
     assert stop.is_set()
 
 
@@ -166,3 +167,75 @@ def test_cli_reports_invalid_plan_as_error_event(monkeypatch):
     finally:
         os.close(read_fd)
     assert events_of(out)[0]["type"] == "error"
+
+
+def write_config(tmp_path, impedance):
+    config = tmp_path / "acquisition.toml"
+    config.write_text(
+        "[sdk]\ndir = 'lib/cometa'\ndevice_ready_timeout_s = 1\n"
+        "[capture]\nsensor_ids = [1, 2]\nevent_period_ms = 10\nstartup_timeout_s = 1\naccelerometer_full_scale = 'g_2'\n"
+        f"[impedance]\ncheck_before_measurement = {str(impedance).lower()}\n"
+        f"[output]\ndata_dir = '{tmp_path.as_posix()}/frei'\nsubjects_dir = '{tmp_path.as_posix()}/raw'\n",
+        encoding="utf-8",
+    )
+    return load_config(config)
+
+
+def run_with_impedance(tmp_path, monkeypatch, impedance, decide=None):
+    """decide: None (nichts), "continue" oder "stop" – schon vor dem Check gesetzt."""
+    monkeypatch.setattr(cli, "load_sdk", lambda path: fake_sdk([], impedance=impedance))
+    monkeypatch.setattr(cli, "CometaReceiver", lambda *args: FakeReceiver(blocks(10, 20, ids=(1, 2)), sensor_ids=(1, 2)))
+    stop, proceed = threading.Event(), threading.Event()
+    {"continue": proceed, "stop": stop}.get(decide, threading.Event()).set()
+    out = io.StringIO()
+    cli.run(MeasurementProtocol.from_dict({**PLAN, "repetitions": 1}), write_config(tmp_path, True), EventStream(out),
+            stop, proceed)
+    return events_of(out)
+
+
+def test_cli_checks_impedance_before_recording(tmp_path, monkeypatch):
+    ev = run_with_impedance(tmp_path, monkeypatch, {})
+    assert [e["type"] for e in ev][:3] == ["checking_impedance", "impedance", "waiting_for_sensors"]
+    assert ev[1]["passed"] and [r["sensor_id"] for r in ev[1]["results"]] == [1, 2]
+    finished = ev[-1]
+    protocol = json.loads((tmp_path / "raw" / PLAN["subject_id"] / f"{finished['recording']}.protocol.json")
+                          .read_text(encoding="utf-8"))
+    assert protocol["impedance"]["passed"] and not protocol["impedance"]["continued_despite_failure"]
+
+
+def test_cli_continues_after_failed_impedance_only_on_request(tmp_path, monkeypatch):
+    ev = run_with_impedance(tmp_path, monkeypatch, {2: "Failed"}, decide="continue")
+    assert not ev[1]["passed"] and ev[1]["results"][1] == {"sensor_id": 2, "report": "Failed", "passed": False}
+    finished = ev[-1]
+    assert finished["saved"]
+    protocol = json.loads((tmp_path / "raw" / PLAN["subject_id"] / f"{finished['recording']}.protocol.json")
+                          .read_text(encoding="utf-8"))
+    assert protocol["impedance"]["continued_despite_failure"]
+
+
+def test_cli_stop_after_failed_impedance_saves_nothing(tmp_path, monkeypatch):
+    ev = run_with_impedance(tmp_path, monkeypatch, {1: "NotExecuted"}, decide="stop")
+    assert [e["type"] for e in ev] == ["checking_impedance", "impedance", "finished"]
+    assert not ev[-1]["saved"]
+    assert not (tmp_path / "raw").exists()
+
+
+def test_cli_waits_for_decision_after_failed_impedance(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "load_sdk", lambda path: fake_sdk([], impedance={1: "Failed"}))
+    stop, proceed = threading.Event(), threading.Event()
+    out = io.StringIO()
+    worker = threading.Thread(target=cli.run, args=(MeasurementProtocol.from_dict(PLAN), write_config(tmp_path, True),
+                                                    EventStream(out), stop, proceed))
+    worker.start()
+    worker.join(timeout=0.5)
+    assert worker.is_alive(), "ohne Entscheidung geht es nicht weiter"
+    stop.set()
+    worker.join(timeout=2)
+    assert not worker.is_alive() and events_of(out)[-1]["type"] == "finished"
+
+
+@pytest.mark.parametrize("data", [b'{"command": "continue"}\n{"command": "stop"}\n'])
+def test_command_listener_sets_continue(data):
+    stop, proceed = threading.Event(), threading.Event()
+    listen_for_commands(io.BytesIO(data), stop, proceed).join(timeout=1)
+    assert proceed.is_set() and stop.is_set()

@@ -24,6 +24,12 @@ startup_timeout_s = 15
 # g_2 wie im SDK-Beispiel für EMG-Sensoren; die Beschleunigung wird derzeit nicht gespeichert.
 accelerometer_full_scale = "g_2"
 
+[impedance]
+# Vor jeder Messung aus der Webapp die Elektroden-Impedanz aller Sensoren prüfen (SDK:
+# CheckElectrodeImpedance, Schwelle laut Hersteller 100 kOhm, Ergebnis nur bestanden/nicht bestanden).
+# Besteht ein Sensor nicht, wartet die Messung, bis in der Webapp "Trotzdem messen" oder "Abbrechen" gewählt wird.
+check_before_measurement = true
+
 [output]
 # Zielordner (relativ zu backend/), nicht versioniert, siehe .gitignore.
 # Messungen aus der Webapp: <subjects_dir>/<Proband-ID>/, derselbe Ordner wie proband.json und Fotos.

@@ -12,6 +12,7 @@ from typing import Any, Callable, Sequence
 
 import numpy as np
 
+from emg_tracking.acquisition.device import open_daq
 from emg_tracking.acquisition.net_array import float_matrix_to_numpy
 from emg_tracking.acquisition.raw_block import RawBlock
 from emg_tracking.acquisition.sdk_loader import WaveplusSdk
@@ -19,8 +20,6 @@ from emg_tracking.acquisition.startup_gate import StartupGate
 
 SAMPLING_RATE_HZ = 2000  # einzige Rate des SDK (SamplingRate.Hz_2000)
 EVENT_PERIODS_MS = (10, 25, 50, 100)  # DataAvailableEventPeriod laut SDK-Handbuch
-STATE_POLL_S = 0.05
-FAILED_STATES = ("CommunicationError", "InitializingError")
 
 
 def _member(enum_type: Any, name: str, what: str) -> Any:
@@ -89,19 +88,6 @@ class CometaReceiver:
         """Sensoren, die seit dem Start noch keinen echten Messwert geliefert haben."""
         return [self.sensor_ids[row] for row in self.startup_gate.silent_channels()]
 
-    def _wait_until_idle(self, daq: Any) -> None:
-        deadline = time.monotonic() + self._ready_timeout_s
-        while daq.State != self._sdk.DeviceState.Idle:
-            state = str(daq.State)
-            if state in FAILED_STATES:
-                raise RuntimeError(f"Receiver meldet {state} (InitialError: {daq.InitialError}).")
-            if time.monotonic() > deadline:
-                raise RuntimeError(
-                    f"Receiver nach {self._ready_timeout_s:g} s nicht bereit (Zustand {state}). "
-                    "Per USB verbunden, Treiber installiert, EMG and Motion Tools geschlossen?"
-                )
-            time.sleep(STATE_POLL_S)
-
     def _configure(self, daq: Any) -> None:
         installed = daq.InstalledSensors
         if max(self.sensor_ids) > installed:
@@ -116,9 +102,8 @@ class CometaReceiver:
             daq.ConfigureSensor(sensor, sensor_id)
 
     def start(self) -> None:
-        daq = self._sdk.DaqSystem()
+        daq = open_daq(self._sdk, self._ready_timeout_s)
         try:
-            self._wait_until_idle(daq)
             self._configure(daq)
             daq.DataAvailable += self._handler  # vor dem Start, damit kein Event verloren geht
             self._subscribed = True

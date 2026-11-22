@@ -9,6 +9,7 @@ import pytest
 
 from emg_tracking.acquisition.cli import DurationLimitedWriter
 from emg_tracking.acquisition.csv_writer import RawCsvWriter
+from emg_tracking.acquisition.impedance_check import check_impedance
 from emg_tracking.acquisition.raw_block import RawBlock
 from emg_tracking.acquisition.receiver import SAMPLING_RATE_HZ, CometaReceiver
 from emg_tracking.acquisition.recording import record
@@ -19,9 +20,12 @@ from emg_tracking.config import load_config
 from fake_sdk import (
     AccelerometerFullScale,
     DataAvailableEventPeriod,
+    INSTALLED_SENSORS,
     DeviceState,
+    FakeDaqSystem,
     FakeReceiver,
     SamplingRate,
+    SensorCheckReport,
     SensorType,
     copy_array,
     fake_sdk,
@@ -236,3 +240,26 @@ def test_default_config_loads():
     cfg = load_config()
     assert cfg.sensor_ids and cfg.event_period_ms > 0 and cfg.device_ready_timeout_s > 0
     assert cfg.sdk_dir.name == "cometa"
+
+
+def test_impedance_check_reports_each_sensor_and_releases_device():
+    created = []
+    sdk = fake_sdk(created, impedance={2: "Failed"})
+    results = check_impedance(sdk, (1, 2, 4), ready_timeout_s=1)
+    assert [(r.sensor_id, r.report, r.passed) for r in results] == [(1, "Passed", True), (2, "Failed", False),
+                                                                     (4, "Passed", True)]
+    assert created[0].impedance_checked == [1, 2, 4] and created[0].disposed
+
+
+def test_impedance_check_accepts_single_report_and_rejects_unknown_sensor():
+    created = []
+    sdk = fake_sdk(created)
+    original = FakeDaqSystem.CheckElectrodeImpedance
+    try:
+        FakeDaqSystem.CheckElectrodeImpedance = lambda self, sensor: [SensorCheckReport.Failed]
+        assert not check_impedance(sdk, (3,), 1)[0].passed
+    finally:
+        FakeDaqSystem.CheckElectrodeImpedance = original
+    with pytest.raises(RuntimeError, match="kennt nur"):
+        check_impedance(sdk, (INSTALLED_SENSORS + 1,), 1)
+    assert all(d.disposed for d in created)

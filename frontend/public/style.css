@@ -107,3 +107,9 @@ th, td { text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--
   .karte { border: none; padding: 0; break-inside: avoid; }
   .kanal { break-inside: avoid; }
 }
+
+/* Impedanz-Check vor der Messung */
+.impedanz-raster { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; margin: .75rem 0; }
+.impedanz-sensor { display: flex; flex-direction: column; min-width: 8rem; padding: .5rem .75rem; border-radius: 8px; font-size: .9rem; }
+.impedanz-sensor.ok { background: var(--akzent-hell); color: #085041; }
+.impedanz-sensor.schlecht { background: var(--warn-hell); color: var(--warn); }

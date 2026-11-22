@@ -25,6 +25,7 @@ SamplingRate = NetEnum("SamplingRate", "Hz_2000")
 DataAvailableEventPeriod = NetEnum("DataAvailableEventPeriod", "ms_100 ms_50 ms_25 ms_10")
 SensorType = NetEnum("SensorType", "EMG_SENSOR INERTIAL_SENSOR")
 AccelerometerFullScale = NetEnum("AccelerometerFullScale", "g_2 g_4 g_8 g_16")
+SensorCheckReport = NetEnum("SensorCheckReport", "Failed Passed NotExecuted")
 
 
 class FakeEvent:
@@ -47,7 +48,8 @@ class FakeConfiguration(SimpleNamespace):
 
 
 class FakeDaqSystem:
-    def __init__(self, states=(DeviceState.Idle,), configure_ok=True):
+    # impedance: Sensor-ID -> Name des SensorCheckReport; nicht genannte Sensoren bestehen
+    def __init__(self, states=(DeviceState.Idle,), configure_ok=True, impedance=None):
         self._states = list(states)  # nacheinander gelieferte Zustände beim Abfragen von State
         self._state = self._states.pop(0)
         self.configure_ok = configure_ok
@@ -59,6 +61,8 @@ class FakeDaqSystem:
         self.handlers_at_start: list = []
         self.period = None
         self.disposed = False
+        self.impedance = impedance or {}
+        self.impedance_checked: list[int] = []
 
     @property
     def State(self):
@@ -81,6 +85,13 @@ class FakeDaqSystem:
 
     def StopCapturing(self):
         self._state = DeviceState.Idle
+
+    def CheckElectrodeImpedance(self, sensor):
+        """Wie vermutlich das SDK: ein Eintrag je installiertem Sensor, nur der geprüfte ist ausgeführt."""
+        self.impedance_checked.append(sensor)
+        reports = [SensorCheckReport.NotExecuted] * INSTALLED_SENSORS
+        reports[sensor - 1] = SensorCheckReport[self.impedance.get(sensor, "Passed")]
+        return reports
 
     def Dispose(self):
         self.disposed = True

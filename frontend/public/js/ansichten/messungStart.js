@@ -3,6 +3,7 @@ import { api } from "../api.js";
 import { sitzung } from "../sitzung.js";
 import { esc } from "../hilfen.js";
 import { ton } from "../ton.js";
+import { platzierungOptionen } from "./platzierungOptionen.js";
 
 const MAX_NOTIZ = 500;
 const letzteWahl = new Map();   // Proband-ID → zuletzt gewählte Platzierung (für diese Browsersitzung)
@@ -19,19 +20,16 @@ function vorauswahl(p) {
 // meldung(text, klasse) zeigt Fehler an; gesperrt: es läuft eine Messung für einen anderen Probanden.
 // Gibt eine Funktion zurück, die die Beschriftung des Start-Knopfs aktualisiert.
 export function zeigeMessungStart(el, p, eintrag, { gesperrt, meldung }) {
-  const gewaehlt = vorauswahl(p);
-  const optionen = [`<option value="">– keine Angabe –</option>`, ...p.platzierungen.map((x) =>
-    `<option value="${x.id}" ${x.id === gewaehlt ? "selected" : ""}>${esc(x.name)} (Anordnung ${esc(x.variante)})</option>`)];
   el.innerHTML = `
     <div class="karte">
       <h2 style="margin-top:0">Messung starten</h2>
       <div class="einstellungen">
         <div><label for="ms-platzierung" style="margin-top:0">Elektroden-Platzierung</label>
-          <select id="ms-platzierung">${optionen.join("")}</select></div>
+          <select id="ms-platzierung">${platzierungOptionen(p, vorauswahl(p))}</select></div>
         <div><label for="ms-notiz" style="margin-top:0">Notiz zu dieser Messung (optional)</label>
           <input type="text" id="ms-notiz" maxlength="${MAX_NOTIZ}" placeholder="z. B. Sitzung 2, nach 5 min Pause" value="${esc(letzteNotiz.get(p.id) || "")}"></div>
       </div>
-      <p class="klein">Vor dem Start: Sensoren einschalten und anbringen, EMG and Motion Tools schließen. Die Aufnahme beginnt, sobald alle Sensoren senden; dann folgt der Vorlauf und danach der erste Piepton.</p>
+      <p class="klein">Vor dem Start: Sensoren einschalten und anbringen, EMG and Motion Tools schließen. Zuerst wird die Impedanz der Elektroden geprüft und angezeigt. Die Aufnahme beginnt, sobald alle Sensoren senden; dann folgt der Vorlauf und danach der erste Piepton.</p>
       <div class="reihe"><button class="haupt" id="ms-start" ${gesperrt ? "disabled" : ""}></button>
         ${gesperrt ? `<span class="klein">Es läuft gerade eine Messung für einen anderen Probanden.</span>` : ""}</div>
     </div>`;

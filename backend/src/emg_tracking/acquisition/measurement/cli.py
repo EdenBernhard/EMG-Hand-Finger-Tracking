@@ -6,9 +6,15 @@ Aufruf im Ordner ``backend``: ``python -m emg_tracking.acquisition.measurement.c
   ``{"subject_id": "P01", "movements": ["Faust", {"name": "Pinch", "count": 3}], "interval_s": 5,
   "repetitions": 3, "lead_in_s": 3, "label": "Finger einzeln", "context": {"notiz": "..."}}``
   (``count``: so oft direkt hintereinander, Standard 1; ``label`` und ``context`` sind optional)
-- stdin, danach: ``{"command": "stop"}`` beendet die Messung vorzeitig (ebenso das Ende von stdin).
-- stdout: ein JSON-Objekt pro Zeile mit ``type`` = ``waiting_for_sensors``, ``recording``, ``cue``,
-  ``finished`` oder ``error``. Menschenlesbare Meldungen gehen nach stderr.
+- stdin, danach: ``{"command": "stop"}`` beendet die Messung vorzeitig (ebenso das Ende von stdin);
+  ``{"command": "continue"}`` misst nach einem nicht bestandenen Impedanz-Check trotzdem.
+- stdout: ein JSON-Objekt pro Zeile mit ``type`` = ``checking_impedance``, ``impedance``,
+  ``waiting_for_sensors``, ``recording``, ``cue``, ``finished`` oder ``error``. Menschenlesbare
+  Meldungen gehen nach stderr.
+
+Ist ``[impedance] check_before_measurement`` gesetzt, wird vor der Aufnahme die Impedanz aller
+Sensoren geprüft (``impedance``: ``results`` je Sensor, ``passed``). Besteht ein Sensor nicht, wartet
+die Messung auf ``continue`` oder ``stop``.
 
 Dateien in ``data/probanden/<subject_id>/`` (``subjects_dir`` der Konfiguration), Stamm ``<zeit>_<label als Dateiname>``: ``<stamm>.csv`` (Rohdaten), ``<stamm>.cues.csv`` (Vorgaben),
 ``<stamm>.protocol.json`` (Messplan und Ablauf) und ``<stamm>.config.toml`` (Kopie der Konfiguration).
@@ -20,6 +26,7 @@ import argparse
 import json
 import sys
 import threading
+from typing import Any
 from datetime import datetime
 from pathlib import Path
 
@@ -30,7 +37,8 @@ from emg_tracking.acquisition.measurement.event_stream import EventStream
 from emg_tracking.acquisition.measurement.measurement import Measurement
 from emg_tracking.acquisition.measurement.protocol import MeasurementProtocol
 from emg_tracking.acquisition.measurement.recording_name import recording_name
-from emg_tracking.acquisition.measurement.stop_listener import listen_for_stop
+from emg_tracking.acquisition.impedance_check import THRESHOLD_OHM, check_impedance
+from emg_tracking.acquisition.measurement.command_listener import listen_for_commands
 from emg_tracking.acquisition.receiver import SAMPLING_RATE_HZ, CometaReceiver
 from emg_tracking.acquisition.recording import record
 from emg_tracking.acquisition.recording_files import RecordingFiles
@@ -39,7 +47,7 @@ from emg_tracking.config import DEFAULT_CONFIG, AcquisitionConfig, load_config
 
 def _write_protocol_json(
     files: RecordingFiles, protocol: MeasurementProtocol, cfg: AcquisitionConfig, sdk_version: str,
-    started_at: datetime, measurement: Measurement, stopped_early: bool,
+    started_at: datetime, measurement: Measurement, stopped_early: bool, impedance: dict[str, Any] | None,
 ) -> None:
     content = {
         **protocol.to_dict(),
@@ -52,13 +60,44 @@ def _write_protocol_json(
         "end_sample_index": measurement.schedule.end_sample_index,
         "completed": measurement.completed,
         "stopped_early": stopped_early,
+        "impedance": impedance,
         "files": {"raw": files.raw_csv.name, "cues": files.cues_csv.name, "config": files.config_copy.name},
     }
     files.protocol_json.write_text(json.dumps(content, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def run(protocol: MeasurementProtocol, cfg: AcquisitionConfig, events: EventStream, stop: threading.Event) -> None:
+DECISION_POLL_S = 0.1
+
+
+def _impedance_phase(
+    sdk: Any, cfg: AcquisitionConfig, events: EventStream, stop: threading.Event, proceed: threading.Event,
+) -> dict[str, Any]:
+    """Prüft die Impedanz und wartet bei nicht bestandenen Sensoren auf die Entscheidung der Webapp."""
+    print("Prüfe die Impedanz der Elektroden ...", file=sys.stderr)
+    events.emit("checking_impedance", sensor_ids=list(cfg.sensor_ids))
+    results = [r.to_dict() for r in check_impedance(sdk, cfg.sensor_ids, cfg.device_ready_timeout_s)]
+    passed = all(r["passed"] for r in results)
+    events.emit("impedance", results=results, passed=passed, threshold_ohm=THRESHOLD_OHM)
+    while not passed and not proceed.is_set() and not stop.is_set():
+        stop.wait(DECISION_POLL_S)
+    return {"results": results, "passed": passed, "threshold_ohm": THRESHOLD_OHM,
+            "continued_despite_failure": not passed and proceed.is_set()}
+
+
+def _emit_not_saved(events: EventStream, impedance: dict[str, Any] | None) -> None:
+    events.emit("finished", saved=False, recording=None, samples=0, duration_s=0, cues=0, completed=False,
+                impedance=impedance)
+
+
+def run(
+    protocol: MeasurementProtocol, cfg: AcquisitionConfig, events: EventStream, stop: threading.Event,
+    proceed: threading.Event | None = None,
+) -> None:
     sdk = load_sdk(cfg.sdk_dir)
+    impedance = _impedance_phase(sdk, cfg, events, stop, proceed or threading.Event()) if cfg.check_impedance else None
+    if stop.is_set():  # während des Checks oder statt „Trotzdem messen“ abgebrochen
+        _emit_not_saved(events, impedance)
+        return
     started_at = datetime.now()
     files = RecordingFiles.create(cfg.subjects_dir / protocol.subject_id, recording_name(protocol.label), started_at)
     receiver = CometaReceiver(
@@ -81,7 +120,7 @@ def run(protocol: MeasurementProtocol, cfg: AcquisitionConfig, events: EventStre
 
     saved = not files.discard_if_empty()
     if saved:
-        _write_protocol_json(files, protocol, cfg, sdk.version, started_at, measurement, stop.is_set())
+        _write_protocol_json(files, protocol, cfg, sdk.version, started_at, measurement, stop.is_set(), impedance)
     events.emit(
         "finished",
         saved=saved,
@@ -90,6 +129,7 @@ def run(protocol: MeasurementProtocol, cfg: AcquisitionConfig, events: EventStre
         duration_s=measurement.n_samples / SAMPLING_RATE_HZ,
         cues=measurement.n_cues,
         completed=measurement.completed,
+        impedance=impedance,
     )
 
 
@@ -105,9 +145,9 @@ def main(argv: list[str] | None = None) -> int:
     stdin = open(sys.stdin.fileno(), "rb", buffering=0, closefd=False)
     try:
         protocol = MeasurementProtocol.from_dict(json.loads(stdin.readline().decode("utf-8")))
-        stop = threading.Event()
-        listen_for_stop(stdin, stop)
-        run(protocol, load_config(args.config), events, stop)
+        stop, proceed = threading.Event(), threading.Event()
+        listen_for_commands(stdin, stop, proceed)
+        run(protocol, load_config(args.config), events, stop, proceed)
     except Exception as exc:
         print(f"Fehler: {exc}", file=sys.stderr)
         events.emit("error", message=str(exc))

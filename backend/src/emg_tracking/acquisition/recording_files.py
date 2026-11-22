@@ -31,6 +31,10 @@ class RecordingFiles:
         return self.directory / f"{self.stem}.config.toml"
 
     @property
+    def events_csv(self) -> Path:
+        return self.directory / f"{self.stem}.events.csv"
+
+    @property
     def cues_csv(self) -> Path:
         return self.directory / f"{self.stem}.cues.csv"
 
@@ -39,7 +43,7 @@ class RecordingFiles:
         return self.directory / f"{self.stem}.protocol.json"
 
     def all(self) -> tuple[Path, ...]:
-        return (self.raw_csv, self.config_copy, self.cues_csv, self.protocol_json)
+        return (self.raw_csv, self.events_csv, self.config_copy, self.cues_csv, self.protocol_json)
 
     def copy_config(self, source: Path) -> None:
         shutil.copyfile(source, self.config_copy)

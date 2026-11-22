@@ -11,6 +11,7 @@ import { zeigeMessungStart } from "./messungStart.js";
 import { erstelleLiveAnzeige } from "./messungLive.js";
 import { aufnahmenListe } from "./aufnahmenListe.js";
 import { zeigeC3dImport } from "./c3dImportKarte.js";
+import { verbindeAnalysen } from "./analyseAktionen.js";
 
 const ergebnisText = (e) => e.saved
   ? `Messung gespeichert: ${e.recording} · ${dauerText(e.duration_s)} · ${e.cues} Vorgaben` +
@@ -25,12 +26,18 @@ export function zeigeMessung(el, messplanId) {
   const eintrag = p.messplaene.find((m) => m.id === messplanId) || p.messplaene[0];
 
   el.innerHTML = `<p id="ms-meldung"></p><div id="ms-haupt"></div><div id="ms-import"></div>
-    <div id="ms-liste">${aufnahmenListe(p)}</div>`;
+    <div id="ms-liste"></div>`;
   const haupt = el.querySelector("#ms-haupt");
+  const zeigeListe = () => {
+    const liste = el.querySelector("#ms-liste");
+    liste.innerHTML = aufnahmenListe(p);
+    verbindeAnalysen(liste, p);
+  };
+  zeigeListe();
   zeigeC3dImport(el.querySelector("#ms-import"), p, {
     beiImport: (aufnahme) => {
       p.aufnahmen.push(aufnahme);
-      el.querySelector("#ms-liste").innerHTML = aufnahmenListe(p);
+      zeigeListe();
     },
   });
   const meldung = (text, klasse = "info") => {
@@ -88,7 +95,7 @@ export function zeigeMessung(el, messplanId) {
       p.aufnahmen = (await api.lade(p.id)).aufnahmen || [];
       zeigeVorbereitung();
       meldung(ergebnisText(e), e.completed ? "info" : "hinweis");
-      el.querySelector("#ms-liste").innerHTML = aufnahmenListe(p);
+      zeigeListe();
     }
   };
 

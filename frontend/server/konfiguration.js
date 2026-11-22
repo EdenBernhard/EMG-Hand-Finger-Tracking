@@ -22,6 +22,13 @@ export const KONFIGURATION = {
     argumente: ["-m", "emg_tracking.acquisition.measurement.cli"],
     arbeitsordner: BACKEND_ROOT,
   },
+  // Analyse je Aufnahme: führt Datenaufbereitung/Clustering_ Analyse.ipynb mit der CSV aus (backend: pip install -e ".[analyse]")
+  analyse: {
+    programm: python,
+    argumente: ["-m", "emg_tracking.analysis.cli"],
+    arbeitsordner: BACKEND_ROOT,
+    zeitlimitMs: 60 * 60_000,   // lange Aufnahmen (mehrere Minuten) brauchen im Notebook lange
+  },
   // Fotos vom Handy: so lange gilt ein QR-Code bzw. Link
   handy: { gueltigMin: 30 },
   // C3D-Dateien aus EMG and Motion Tools: Upload als Rohdaten, Konvertierung in CSV durch das Backend

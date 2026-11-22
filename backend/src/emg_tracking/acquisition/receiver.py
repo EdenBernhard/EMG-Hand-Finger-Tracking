@@ -1,7 +1,7 @@
 """Empfang von Rohdaten des Cometa-Wave-Plus-Systems über das .NET-SDK (Waveplus.DaqSys).
 
-Es wird nichts gefiltert oder umgerechnet: Die Werte sind die µV-Werte, die das SDK in
-``DataAvailableEventArgs.Samples[sensor, zeitpunkt]`` liefert.
+Es wird nichts gefiltert oder umgerechnet: EMG in µV aus ``DataAvailableEventArgs.Samples[sensor, zeitpunkt]``,
+Beschleunigung in g aus ``AccelerometerSamples`` (Form siehe ``accelerometer``).
 """
 
 from __future__ import annotations
@@ -12,8 +12,9 @@ from typing import Any, Callable, Sequence
 
 import numpy as np
 
+from emg_tracking.acquisition.accelerometer import sensor_axis_time
 from emg_tracking.acquisition.device import open_daq
-from emg_tracking.acquisition.net_array import float_matrix_to_numpy
+from emg_tracking.acquisition.net_array import float_array_to_numpy
 from emg_tracking.acquisition.raw_block import RawBlock
 from emg_tracking.acquisition.sdk_loader import WaveplusSdk
 from emg_tracking.acquisition.startup_gate import StartupGate
@@ -45,7 +46,7 @@ class CometaReceiver:
         event_period_ms: int,
         accelerometer_full_scale: str,
         device_ready_timeout_s: float,
-        to_numpy: Callable[[Any], np.ndarray] = float_matrix_to_numpy,
+        to_numpy: Callable[[Any], np.ndarray] = float_array_to_numpy,
     ) -> None:
         if any(i < 1 for i in sensor_ids):
             raise ValueError(f"sensor_ids sind 1-basiert: {sensor_ids}")
@@ -78,7 +79,12 @@ class CometaReceiver:
             samples = self.startup_gate.admit(emg[self._rows, :n])  # Zeilenauswahl kopiert
             if samples.shape[1] == 0:
                 return
-            block = RawBlock(self._sample_counter, host_time_ns, self.sensor_ids, samples, int(e.USBLostPackets))
+            skipped = n - samples.shape[1]  # Anlaufphase am Anfang des Events: Beschleunigung genauso kürzen
+            accelerometer = None
+            if e.AccelerometerSamples is not None:
+                accelerometer = sensor_axis_time(self._to_numpy(e.AccelerometerSamples), n)[self._rows, :, skipped:]
+            block = RawBlock(self._sample_counter, host_time_ns, self.sensor_ids, samples, int(e.USBLostPackets),
+                             accelerometer)
             self._sample_counter += block.n_samples
             self.blocks.put(block)
         except BaseException as exc:  # Ausnahmen im SDK-Thread sonst stillschweigend verloren

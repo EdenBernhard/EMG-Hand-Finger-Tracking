@@ -9,13 +9,15 @@ import numpy as np
 
 @dataclass(frozen=True)
 class RawBlock:
-    """Ein DataAvailable-Event: ``samples[i]`` ist die Zeitreihe von ``sensor_ids[i]`` in µV."""
+    """Ein DataAvailable-Event: ``samples[i]`` ist die EMG-Zeitreihe von ``sensor_ids[i]`` in µV,
+    ``accelerometer[i]`` dessen Beschleunigung X/Y/Z in g (None, wenn das SDK keine liefert)."""
 
     first_sample_index: int  # fortlaufender Sample-Zähler seit Start (Zeit = Index / fs)
     host_time_ns: int  # time.time_ns() beim Eintreffen des Events
     sensor_ids: tuple[int, ...]
     samples: np.ndarray  # float32, Form (len(sensor_ids), n_samples), eigene Kopie
     usb_lost_packets: int  # so, wie das SDK es für dieses Event meldet (nicht interpretiert)
+    accelerometer: np.ndarray | None = None  # float32, Form (len(sensor_ids), 3, n_samples), eigene Kopie
 
     @property
     def n_samples(self) -> int:

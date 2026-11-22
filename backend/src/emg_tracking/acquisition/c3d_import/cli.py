@@ -3,8 +3,9 @@
 Aufruf im Ordner ``backend``:
 ``python -m emg_tracking.acquisition.c3d_import.cli --subject <id> [--name Original.c3d] [--context JSON] <datei.c3d>``
 
-Dateien in ``data/probanden/<subject>/`` (``subjects_dir`` der Konfiguration), Stamm ``<zeit>_<Originalname als Dateiname>``:
-``<stamm>.csv`` (Analogkanäle: ``sample_index``, ``time_s``, ein Kanal je Spalte), ``<stamm>.c3d`` (unveränderte
+Dateien in ``data/probanden/<subject>/<platzierung>_<platzierungs-id>/`` (``subjects_dir`` der Konfiguration;
+ohne Platzierung im Kontext: ``ohne_platzierung/``), Stamm ``<zeit>_<Originalname als Dateiname>``:
+``<stamm>.csv`` (``Time`` und die Analogkanäle wie beim früheren Converter/convertC3D.py), ``<stamm>.c3d`` (unveränderte
 Originaldatei) und ``<stamm>.protocol.json`` (Herkunft, Kanäle, Einheiten, Abtastrate, Kontext der Webapp).
 
 stdout: genau eine JSON-Zeile mit ``type`` = ``finished`` oder ``error``. Meldungen gehen nach stderr.
@@ -26,6 +27,7 @@ from emg_tracking.acquisition.c3d_import.c3d_reader import read_c3d
 from emg_tracking.acquisition.measurement.event_stream import EventStream
 from emg_tracking.acquisition.measurement.protocol import SUBJECT_ID_PATTERN
 from emg_tracking.acquisition.measurement.recording_name import recording_name
+from emg_tracking.acquisition.placement_folder import placement_folder
 from emg_tracking.acquisition.recording_files import RecordingFiles
 from emg_tracking.config import DEFAULT_CONFIG, load_config
 
@@ -63,7 +65,8 @@ def import_c3d(
 
     recording = read_c3d(source)  # vor dem Anlegen von Dateien: eine kaputte Datei hinterlässt nichts
     imported_at = now or datetime.now()
-    files = RecordingFiles.create(subjects_dir / subject_id, recording_name(Path(original_name).stem), imported_at)
+    folder = placement_folder(subjects_dir / subject_id, context.get("platzierung"))
+    files = RecordingFiles.create(folder, recording_name(Path(original_name).stem), imported_at)
     original_copy = files.directory / f"{files.stem}{C3D_SUFFIX}"
     written = (files.raw_csv, original_copy, files.protocol_json)
     if any(p.exists() for p in written):

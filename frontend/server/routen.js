@@ -7,14 +7,27 @@ import { pruefeDateiname } from "./c3dImport.js";
 import { neueImportAufnahme } from "../public/js/modell/aufnahmen.js";
 import { istErlaubt } from "./zugriffsSchutz.js";
 import { lanAdressen } from "./netzAdressen.js";
+import { findeAufnahme, vorhandeneAnalysen } from "./aufnahmeDateien.js";
 
 const SEITEN = ["innen", "oben"];
+// Die Analyse-Seite stammt aus einem Notebook: ohne Skripte und ohne Nachladen aus dem Netz anzeigen
+const ANALYSE_KOPF = { "Content-Security-Policy":
+  "sandbox; default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:" };
 
-// c3dImport: C3dImport-Instanz, handyZugang: HandyZugang-Instanz; fehlt eine, gibt es die Funktion nicht (404)
+// c3dImport, handyZugang, analyse: Instanzen der jeweiligen Klasse; fehlt eine, gibt es die Funktion nicht (404)
 // adressen: liefert die WLAN-Adressen für die Handy-Links (in Tests ersetzbar)
 export function erstelleRouter(speicher, steuerung,
-  { publicOrdner, maxAnfrageBytes, c3dImport, handyZugang, adressen = lanAdressen }) {
+  { publicOrdner, maxAnfrageBytes, c3dImport, handyZugang, analyse, adressen = lanAdressen }) {
   const body = (req) => leseJson(req, maxAnfrageBytes);
+  const analyseDienst = () => {
+    if (!analyse) throw new HttpFehler(404, "Nicht gefunden.");
+    return analyse;
+  };
+  // 404, falls es Proband oder Rohdaten nicht gibt
+  const dateienVon = async (id, name) => {
+    await speicher.lade(id);
+    return findeAufnahme(speicher.ordnerVon(id), name);
+  };
   const zugang = () => {
     if (!handyZugang) throw new HttpFehler(404, "Nicht gefunden.");
     return handyZugang;
@@ -61,6 +74,20 @@ export function erstelleRouter(speicher, steuerung,
       const id = zugang().probandZu(token);
       await speicher.speichereBild(id, seite, await body(req));
       sendeJson(res, 200, { seite, ok: true });
+    }],
+    // Analyse je Aufnahme: das Notebook aus Datenaufbereitung/ mit der CSV dieser Aufnahme
+    ["GET", /^\/api\/probanden\/([^/]+)\/analysen$/, async (req, res, id) => {
+      await speicher.lade(id);
+      sendeJson(res, 200, { namen: await vorhandeneAnalysen(speicher.ordnerVon(id)) });
+    }],
+    ["GET", /^\/api\/probanden\/([^/]+)\/aufnahmen\/([^/]+)\/analyse$/, async (req, res, id, name) => {
+      sendeJson(res, 200, await analyseDienst().zustand(id, name, await dateienVon(id, name)));
+    }],
+    ["POST", /^\/api\/probanden\/([^/]+)\/aufnahmen\/([^/]+)\/analyse$/, async (req, res, id, name) => {
+      sendeJson(res, 202, analyseDienst().starte(id, name, await dateienVon(id, name)));
+    }],
+    ["GET", /^\/analyse\/([^/]+)\/([^/]+)$/, async (req, res, id, name) => {
+      await sendeDatei(res, (await dateienVon(id, name)).analyse, { kopf: ANALYSE_KOPF });
     }],
     ["GET", /^\/api\/messung$/, async (req, res) => sendeJson(res, 200, steuerung.zustand)],
     ["POST", /^\/api\/messung\/fortsetzen$/, async (req, res) => { steuerung.setzeFort(); sendeLeer(res, 202); }],

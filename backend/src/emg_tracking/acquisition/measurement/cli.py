@@ -16,7 +16,9 @@ Ist ``[impedance] check_before_measurement`` gesetzt, wird vor der Aufnahme die 
 Sensoren geprüft (``impedance``: ``results`` je Sensor, ``passed``). Besteht ein Sensor nicht, wartet
 die Messung auf ``continue`` oder ``stop``.
 
-Dateien in ``data/probanden/<subject_id>/`` (``subjects_dir`` der Konfiguration), Stamm ``<zeit>_<label als Dateiname>``: ``<stamm>.csv`` (Rohdaten), ``<stamm>.cues.csv`` (Vorgaben),
+Dateien in ``data/probanden/<subject_id>/<platzierung>_<platzierungs-id>/`` (``subjects_dir`` der Konfiguration;
+ohne Platzierung im Kontext: ``ohne_platzierung/``), Stamm ``<zeit>_<label als Dateiname>``: ``<stamm>.csv`` (Rohdaten im Aufbau von EMG and Motion Tools, siehe ``csv_layout``),
+``<stamm>.events.csv`` (PC-Zeit und USB-Verluste je SDK-Event), ``<stamm>.cues.csv`` (Vorgaben),
 ``<stamm>.protocol.json`` (Messplan und Ablauf) und ``<stamm>.config.toml`` (Kopie der Konfiguration).
 """
 
@@ -30,13 +32,16 @@ from typing import Any
 from datetime import datetime
 from pathlib import Path
 
-from emg_tracking.acquisition.csv_writer import RawCsvWriter
+from emg_tracking.acquisition.block_events_csv import BlockEventCsvWriter
+from emg_tracking.acquisition.motion_tools_csv import MotionToolsCsvWriter
+from emg_tracking.acquisition.recording_writer import RecordingWriter
 from emg_tracking.acquisition.measurement.cue_csv_writer import CueCsvWriter
 from emg_tracking.acquisition.measurement.cue_schedule import CueSchedule
 from emg_tracking.acquisition.measurement.event_stream import EventStream
 from emg_tracking.acquisition.measurement.measurement import Measurement
 from emg_tracking.acquisition.measurement.protocol import MeasurementProtocol
 from emg_tracking.acquisition.measurement.recording_name import recording_name
+from emg_tracking.acquisition.placement_folder import placement_folder
 from emg_tracking.acquisition.impedance_check import THRESHOLD_OHM, check_impedance
 from emg_tracking.acquisition.measurement.command_listener import listen_for_commands
 from emg_tracking.acquisition.receiver import SAMPLING_RATE_HZ, CometaReceiver
@@ -61,7 +66,8 @@ def _write_protocol_json(
         "completed": measurement.completed,
         "stopped_early": stopped_early,
         "impedance": impedance,
-        "files": {"raw": files.raw_csv.name, "cues": files.cues_csv.name, "config": files.config_copy.name},
+        "files": {"raw": files.raw_csv.name, "events": files.events_csv.name, "cues": files.cues_csv.name,
+                  "config": files.config_copy.name},
     }
     files.protocol_json.write_text(json.dumps(content, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -99,16 +105,20 @@ def run(
         _emit_not_saved(events, impedance)
         return
     started_at = datetime.now()
-    files = RecordingFiles.create(cfg.subjects_dir / protocol.subject_id, recording_name(protocol.label), started_at)
+    folder = placement_folder(cfg.subjects_dir / protocol.subject_id, protocol.context.get("platzierung"))
+    files = RecordingFiles.create(folder, recording_name(protocol.label), started_at)
     receiver = CometaReceiver(
         sdk, cfg.sensor_ids, cfg.event_period_ms, cfg.accelerometer_full_scale, cfg.device_ready_timeout_s
     )
     try:
         files.copy_config(cfg.source_file)
         with open(files.raw_csv, "w", newline="", encoding="utf-8") as raw, \
+                open(files.events_csv, "w", newline="", encoding="utf-8") as block_events, \
                 open(files.cues_csv, "w", newline="", encoding="utf-8") as cues:
+            writer = RecordingWriter(MotionToolsCsvWriter(raw, cfg.csv_layout, cfg.sensor_ids, SAMPLING_RATE_HZ),
+                                     BlockEventCsvWriter(block_events))
             measurement = Measurement(
-                CueSchedule(protocol, SAMPLING_RATE_HZ), RawCsvWriter(raw, cfg.sensor_ids), CueCsvWriter(cues),
+                CueSchedule(protocol, SAMPLING_RATE_HZ), writer, CueCsvWriter(cues),
                 events, SAMPLING_RATE_HZ,
             )
             print(f"Warte, bis die Sensoren senden (höchstens {cfg.startup_timeout_s:g} s) ...", file=sys.stderr)

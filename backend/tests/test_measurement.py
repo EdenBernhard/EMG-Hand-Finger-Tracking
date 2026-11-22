@@ -10,7 +10,10 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from emg_tracking.acquisition.csv_writer import RawCsvWriter
+from emg_tracking.acquisition.block_events_csv import BlockEventCsvWriter
+from emg_tracking.acquisition.csv_layout import CsvLayout
+from emg_tracking.acquisition.motion_tools_csv import MotionToolsCsvWriter
+from emg_tracking.acquisition.recording_writer import RecordingWriter
 from emg_tracking.acquisition.measurement import cli
 from emg_tracking.acquisition.measurement.cue_csv_writer import CueCsvWriter
 from emg_tracking.acquisition.measurement.cue_schedule import CueSchedule
@@ -85,7 +88,8 @@ def test_schedule_reports_each_cue_once():
 def test_measurement_writes_raw_data_and_labels_and_stops_at_end():
     raw, cues, out = io.StringIO(), io.StringIO(), io.StringIO()
     schedule = CueSchedule(MeasurementProtocol.from_dict(PLAN), FS)
-    m = Measurement(schedule, RawCsvWriter(raw, (1,)), CueCsvWriter(cues), EventStream(out), FS, clock_ns=lambda: 42)
+    writer = RecordingWriter(MotionToolsCsvWriter(raw, CsvLayout((1,), 1), (1,), FS), BlockEventCsvWriter(io.StringIO()))
+    m = Measurement(schedule, writer, CueCsvWriter(cues), EventStream(out), FS, clock_ns=lambda: 42)
 
     n = record(FakeReceiver(blocks(20, 20)), m, startup_timeout_s=1)
 
@@ -120,6 +124,7 @@ def test_cli_runs_measurement_and_writes_files(tmp_path, monkeypatch):
     config.write_text(
         "[sdk]\ndir = 'lib/cometa'\ndevice_ready_timeout_s = 1\n"
         "[capture]\nsensor_ids = [1]\nevent_period_ms = 10\nstartup_timeout_s = 1\naccelerometer_full_scale = 'g_2'\n"
+        "[csv]\nemg_sensors = [1, 2, 4, 5, 6, 7]\nn_sensors = 16\n"
         f"[output]\ndata_dir = '{tmp_path.as_posix()}/frei'\nsubjects_dir = '{tmp_path.as_posix()}/raw'\n",
         encoding="utf-8",
     )
@@ -144,7 +149,7 @@ def test_cli_runs_measurement_and_writes_files(tmp_path, monkeypatch):
     assert [e["type"] for e in ev] == ["waiting_for_sensors", "recording", "cue", "finished"]
     finished = ev[-1]
     assert finished["saved"] and finished["completed"] and finished["cues"] == 1
-    folder = tmp_path / "raw" / PLAN["subject_id"]
+    folder = tmp_path / "raw" / PLAN["subject_id"] / "a_abcdef12"  # Platzierung "A", ID abcdef12
     stem = finished["recording"]
     assert stem.endswith("_daumen")
     protocol = json.loads((folder / f"{stem}.protocol.json").read_text(encoding="utf-8"))
@@ -153,6 +158,10 @@ def test_cli_runs_measurement_and_writes_files(tmp_path, monkeypatch):
     assert protocol["sampling_rate_hz"] == FS and protocol["sdk"].endswith("0.0.0-test")
     assert (folder / f"{stem}.cues.csv").read_text(encoding="utf-8").splitlines()[1].startswith("0,1,Daumen schließen,1,1,10,")
     assert (folder / f"{stem}.config.toml").exists() and (folder / f"{stem}.csv").exists()
+    header = (folder / f"{stem}.csv").read_text(encoding="utf-8").splitlines()[0].split(",")
+    assert header[:3] == ["Time", "Emg_1", "Acc_1 :X"] and len(header) == 1 + 6 + 16 * 3, "Aufbau wie EMG and Motion Tools"
+    assert (folder / f"{stem}.events.csv").read_text(encoding="utf-8").startswith("first_sample_index,")
+    assert protocol["files"]["events"] == f"{stem}.events.csv"
 
 
 def test_cli_reports_invalid_plan_as_error_event(monkeypatch):
@@ -174,6 +183,7 @@ def write_config(tmp_path, impedance):
     config.write_text(
         "[sdk]\ndir = 'lib/cometa'\ndevice_ready_timeout_s = 1\n"
         "[capture]\nsensor_ids = [1, 2]\nevent_period_ms = 10\nstartup_timeout_s = 1\naccelerometer_full_scale = 'g_2'\n"
+        "[csv]\nemg_sensors = [1, 2, 4, 5, 6, 7]\nn_sensors = 16\n"
         f"[impedance]\ncheck_before_measurement = {str(impedance).lower()}\n"
         f"[output]\ndata_dir = '{tmp_path.as_posix()}/frei'\nsubjects_dir = '{tmp_path.as_posix()}/raw'\n",
         encoding="utf-8",
@@ -198,7 +208,7 @@ def test_cli_checks_impedance_before_recording(tmp_path, monkeypatch):
     assert [e["type"] for e in ev][:3] == ["checking_impedance", "impedance", "waiting_for_sensors"]
     assert ev[1]["passed"] and [r["sensor_id"] for r in ev[1]["results"]] == [1, 2]
     finished = ev[-1]
-    protocol = json.loads((tmp_path / "raw" / PLAN["subject_id"] / f"{finished['recording']}.protocol.json")
+    protocol = json.loads((tmp_path / "raw" / PLAN["subject_id"] / "ohne_platzierung" / f"{finished['recording']}.protocol.json")
                           .read_text(encoding="utf-8"))
     assert protocol["impedance"]["passed"] and not protocol["impedance"]["continued_despite_failure"]
 
@@ -208,7 +218,7 @@ def test_cli_continues_after_failed_impedance_only_on_request(tmp_path, monkeypa
     assert not ev[1]["passed"] and ev[1]["results"][1] == {"sensor_id": 2, "report": "Failed", "passed": False}
     finished = ev[-1]
     assert finished["saved"]
-    protocol = json.loads((tmp_path / "raw" / PLAN["subject_id"] / f"{finished['recording']}.protocol.json")
+    protocol = json.loads((tmp_path / "raw" / PLAN["subject_id"] / "ohne_platzierung" / f"{finished['recording']}.protocol.json")
                           .read_text(encoding="utf-8"))
     assert protocol["impedance"]["continued_despite_failure"]
 

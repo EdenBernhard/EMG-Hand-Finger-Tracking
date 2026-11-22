@@ -96,14 +96,20 @@ class FakeDaqSystem:
     def Dispose(self):
         self.disposed = True
 
-    def fire(self, emg, usb_lost=0):
-        """Wie das SDK: ``Samples`` hat eine Zeile pro installiertem Sensor."""
-        buf = np.zeros((INSTALLED_SENSORS, emg.shape[1]), dtype=np.float32)
+    def fire(self, emg, usb_lost=0, acc=None):
+        """Wie das SDK: ``Samples`` hat eine Zeile pro installiertem Sensor, ``AccelerometerSamples``
+        die Form (Sensor, Achse, Zeitpunkt). ``acc``: Werte für die ersten Sensoren, Form (k, 3, n)."""
+        n = emg.shape[1]
+        buf = np.zeros((INSTALLED_SENSORS, n), dtype=np.float32)
         buf[: emg.shape[0]] = emg
-        e = SimpleNamespace(Samples=buf, ScanNumber=emg.shape[1], USBLostPackets=usb_lost)
+        acc_buf = np.zeros((INSTALLED_SENSORS, 3, n), dtype=np.float32)
+        if acc is not None:
+            acc_buf[: acc.shape[0]] = acc
+        e = SimpleNamespace(Samples=buf, AccelerometerSamples=acc_buf, ScanNumber=n, USBLostPackets=usb_lost)
         for handler in list(self.DataAvailable.handlers):
             handler(self, e)
         buf[:] = -1  # Puffer wird wiederverwendet; der Receiver muss vorher kopiert haben
+        acc_buf[:] = -1
 
 
 def fake_sdk(created: list, **daq_kwargs) -> WaveplusSdk:

@@ -156,6 +156,7 @@ python --version                 # muss 3.11 oder neuer sein, 64-Bit
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -e ".[dev]"          # Projekt inkl. pythonnet, numpy und pytest
+pip install -e ".[c3d,analyse]"  # optional: C3D-Import und Analyse-Seite je Messung (Notebook)
 ```
 
 Danach die SDK-Dateien aus dem Cometa-SDK-Paket (Ordner `bin\NET.4.6.1`) nach `backend\lib\cometa\` kopieren:
@@ -198,16 +199,21 @@ python -m emg_tracking.acquisition.cli --duration 10 --name test
 ```
 
 Sensoren (`sensor_ids`), Event-Periode, maximale Anlaufzeit (`startup_timeout_s`) und der Ort der SDK-Dateien (`[sdk]`) stehen in `backend/config/acquisition.toml`; die Abtastrate ist fest 2000 Hz. Die `.cfg` aus Schritt 4 wird dafür nicht gebraucht.
-Jede Aufnahme landet in `data/ohne_proband/` (im Hauptordner) als CSV plus Kopie der verwendeten Konfiguration.
+Jede Aufnahme landet in `data/ohne_proband/` (im Hauptordner) als CSV, `.events.csv` und Kopie der verwendeten Konfiguration.
 
 Nach dem Start wartet die CLI, bis **alle** gewählten Sensoren echte Messwerte liefern (Anlaufphase, ca. 5 s). Erst ab dann wird gespeichert, und erst ab dann zählt `--duration` (in Samples, nicht in Rechnerzeit). Sendet ein Sensor bis `startup_timeout_s` nicht, bricht die Aufnahme ab und nennt die betroffenen Sensoren.
 
+Die CSV hat **denselben Aufbau wie der CSV-Export einer C3D-Datei aus EMG and Motion Tools** (z. B. `Testlauf_2_Sensoren567.csv`). Eigene Messungen und Motion-Tools-Aufnahmen lassen sich damit mit demselben Code auswerten, etwa mit dem Notebook in `Datenaufbereitung/`. Die Spalten legt `[csv]` in `backend/config/acquisition.toml` fest (`emg_sensors`, `n_sensors`):
+
 | Spalte | Bedeutung |
 |---|---|
-| `sample_index` | fortlaufend ab 0 (= erster echter Messwert nach der Anlaufphase); Zeit in s = Index / 2000 |
-| `host_time_ns` | PC-Zeit beim Eintreffen des SDK-Events (gleich für alle Zeilen eines Events) |
-| `sensor_<id>_uV` | Rohwert in µV, unverändert vom SDK, ohne Filter |
-| `usb_lost_packets` | vom SDK gemeldete USB-Paketverluste des Events |
+| `Time` | Zeit in s = Sample-Index / 2000, ab 0 (= erster echter Messwert nach der Anlaufphase). Die Zeilennummer ab 0 ist der `sample_index` aus `cues.csv` |
+| `Emg_<n>` | EMG von Sensor *n* in µV, unverändert vom SDK, ohne Filter; nur für Sensoren in `emg_sensors` (1, 2, 4, 5, 6, 7) |
+| `Acc_<n> :X`, `:Y`, `:Z` | Beschleunigung von Sensor *n* in g (`AccelerometerSamples` des SDK), für alle Sensoren 1–16 |
+
+Reihenfolge wie bei EMG and Motion Tools: `Time`, dann je Sensor `Emg_<n>` (falls vorhanden) und `Acc_<n> :X/:Y/:Z`. Nicht aufgenommene Sensoren stehen wie dort mit 0 in der Datei. Was nicht in diesen Aufbau passt, steht in **`<Stamm>.events.csv`**, eine Zeile je SDK-Event: `first_sample_index`, `n_samples`, `host_time_ns` (PC-Zeit beim Eintreffen), `usb_lost_packets` (vom SDK gemeldete USB-Paketverluste).
+
+> **Noch mit Hardware zu prüfen:** Das SDK dokumentiert die Reihenfolge der Dimensionen von `AccelerometerSamples` nicht. Erkannt wird sie an der Achsen-Dimension der Länge 3 (`acquisition/accelerometer.py`). Bei der ersten echten Messung prüfen: In Ruhe sollte eine Achse je Sensor nahe ±1 g liegen.
 
 
 ---
@@ -227,16 +233,19 @@ Der Node-Server startet dafür `python -m emg_tracking.acquisition.measurement.c
 
 **Takt:** Die Vorgaben werden in Samples gezählt, nicht im Browser: Vorgabe *k* beginnt bei Sample `(Vorlauf + k · Intervall) · 2000`, gezählt ab dem ersten echten Messwert. Die Labels liegen damit exakt auf der Zeitachse der Rohdaten. Der Piepton kommt etwas später (Event-Periode von 10 ms plus Übertragung), die Reaktion des Probanden nochmals später. Das muss die Vorverarbeitung berücksichtigen, z. B. indem sie den Anfang jedes Segments verwirft.
 
-Dateien in `data/probanden/<Proband-ID>/` im Hauptordner, zusammen mit `proband.json` und den Fotos der Webapp (die ID aus der Webapp, nicht der Name); der Namensstamm ist `<Zeit>_<Name des Messplans>`, z. B. `2026-11-18_10-15-00_pinch`:
+Dateien in `data/probanden/<Proband-ID>/<Platzierung>_<Platzierungs-ID>/` im Hauptordner, also je Elektroden-Platzierung ein Unterordner neben `proband.json` und den Fotos der Webapp (die ID aus der Webapp, nicht der Name), z. B. `data/probanden/74a248d61c25/a-nah-am-ellenbogen_eedaaa2f/`. Ohne gewählte Platzierung landet die Aufnahme in `ohne_platzierung/`. Die ID am Ende hält die Zuordnung stabil: Wird eine Platzierung umbenannt, landen neue Aufnahmen weiter im vorhandenen Ordner. Der Namensstamm ist `<Zeit>_<Name des Messplans>`, z. B. `2026-11-18_10-15-00_pinch`:
 
 | Datei | Inhalt |
 |---|---|
-| `<Stamm>.csv` | Rohdaten, Format wie bei der CLI |
+| `<Stamm>.csv` | Rohdaten im Aufbau von EMG and Motion Tools, wie bei der CLI |
+| `<Stamm>.events.csv` | PC-Zeit und USB-Paketverluste je SDK-Event, wie bei der CLI |
 | `<Stamm>.cues.csv` | eine Zeile je Vorgabe: `cue_index`, `repetition` (Durchlauf), `movement`, `in_row`/`in_row_of` (z. B. 2/3 = zweiter von drei Pinches am Stück), `sample_index` (Beginn), `emitted_host_time_ns` (Zeitpunkt der Meldung an die Webapp) |
 | `<Stamm>.protocol.json` | Messplan (`label` = Name), `context` (Messplan-ID, Elektroden-Platzierung mit Anordnung und Elektrodenabstand, Notiz), Sensoren, SDK-Version, `end_sample_index` (Ende der letzten Vorgabe), Anzahl Samples, ob vollständig oder vorzeitig gestoppt |
 | `<Stamm>.config.toml` | Kopie der verwendeten Konfiguration |
 
 Eine Bewegung gilt von ihrem `sample_index` bis zum `sample_index` der nächsten Zeile bzw. bis `end_sample_index`. Samples vor der ersten Vorgabe sind der Vorlauf (Ruhe). Wird vor dem ersten Messwert gestoppt, bleibt nichts gespeichert.
+
+**Ältere Aufnahmen einsortieren:** Aufnahmen von vor dieser Ordnerstruktur liegen noch direkt im Probanden-Ordner. Im Ordner `backend` sortiert `python -m emg_tracking.acquisition.sort_recordings --dry-run` sie zur Probe ein (zeigt nur an), ohne `--dry-run` werden sie verschoben. Die Platzierung kommt aus `protocol.json`; am Ziel wird nie etwas überschrieben.
 
 ---
 
@@ -250,15 +259,34 @@ Voraussetzung ist das optionale Paket `ezc3d` (im Ordner `backend`): `pip instal
 python -m emg_tracking.acquisition.c3d_import.cli --subject <Proband-ID> "D:\Aufnahmen\Testlauf_2.c3d"
 ```
 
-Dateien in `data/probanden/<Proband-ID>/`, Stamm `<Importzeit>_<Originalname>`:
+Dateien wie bei Messungen im Platzierungs-Ordner `data/probanden/<Proband-ID>/<Platzierung>_<Platzierungs-ID>/` (bzw. `ohne_platzierung/`), Stamm `<Importzeit>_<Originalname>`:
 
 | Datei | Inhalt |
 |---|---|
-| `<Stamm>.csv` | Analogkanäle: `sample_index`, `time_s` (= Index / Abtastrate), je Kanal eine Spalte mit dem Kanalnamen aus der C3D-Datei (z. B. `EMG 5`), Werte wie in der Datei skaliert |
+| `<Stamm>.csv` | `Time` (= Index / Abtastrate) und je Kanal eine Spalte mit dem Kanalnamen aus der C3D-Datei (`Emg_5`, `Acc_5 :X` …), Werte wie in der Datei skaliert, wie beim früheren `Converter/convertC3D.py` |
 | `<Stamm>.c3d` | unveränderte Originaldatei |
 | `<Stamm>.protocol.json` | `source: "c3d"`, Originalname, Abtastrate (aus `ANALOG:RATE` der Datei), Kanäle mit Einheit, Anzahl Samples, `context` (Platzierung, Notiz) |
 
-Unterschiede zu Messungen der Webapp: keine `.cues.csv` (keine Bewegungsvorgaben), Spaltennamen und Einheit stammen aus EMG and Motion Tools statt `sensor_<id>_uV`. Die Vorverarbeitung muss das über `source` in `protocol.json` unterscheiden.
+Unterschiede zu Messungen der Webapp: keine `.cues.csv` (keine Bewegungsvorgaben) und keine `.events.csv`. Die Spalten sind dieselben, sofern EMG and Motion Tools mit denselben Sensoren lief. Die Herkunft steht als `source` in `protocol.json`.
+
+CSVs, die vor einer Formatänderung importiert wurden, erzeugt `python -m emg_tracking.acquisition.c3d_import.rebuild` aus den mitgespeicherten `.c3d`-Originalen neu.
+
+---
+
+## Analyse je Messung (Notebook)
+
+In der Webapp hat jede Zeile unter **„Bisherige Messungen“** den Knopf **„Analysieren“**. Der Server startet dann `python -m emg_tracking.analysis.cli`. Dieses führt das Notebook `Datenaufbereitung/Clustering_ Analyse.ipynb` **unverändert** mit der CSV dieser Messung aus und speichert das Ergebnis als `<Stamm>.analyse.html` neben der CSV. Danach öffnet **„Anzeigen“** die Seite mit allen Tabellen und Grafiken in einem neuen Tab, **„Neu“** berechnet sie erneut, z. B. nach Änderungen am Notebook. Eine kurze Aufnahme braucht etwa 30 s, sehr lange (mehrere Minuten) entsprechend länger. Es läuft höchstens eine Analyse gleichzeitig.
+
+So bleibt das Notebook unberührt:
+- Es liest seine CSV über einen festen Namen (`./Testlauf_2_Sensoren567.csv`). Die Analyse läuft deshalb in einem leeren temporären Ordner, in dem die gewählte CSV unter genau diesem Namen liegt (als harter Link, ohne Kopie).
+- Die Notebook-Datei wird nur gelesen. Statt des Kernels „ds“ aus den Notebook-Metadaten läuft es mit dem Python des Backends.
+- Voraussetzung: `pip install -e ".[analyse]"` (Jupyter zum Ausführen plus pandas, matplotlib, seaborn, scipy, scikit-learn, also die Imports des Notebooks).
+- Die Seite lädt nichts aus dem Internet (MathJax und require.js von nbconvert werden entfernt). Sie wird ohne Skripte ausgeliefert und ist, wie alle Daten, nur vom Laptop selbst abrufbar.
+
+**Grenzen, die im Notebook liegen, nicht in der Webapp:**
+- Es wertet fest `Emg_5`–`Emg_7` und `Acc_5`–`Acc_7` aus.
+- Die Bewegungsabschnitte (`movement_intervals`) sind die 74 s des ersten Testlaufs. ARI und NMI sind also nur für Aufnahmen nach diesem Ablauf aussagekräftig.
+- Bei Aufnahmen über 74 s bricht die letzte Vergleichszelle ab (unterschiedlich viele Fenster). Die Seite zeigt dann alles bis dahin und nennt den Fehler.
 
 ---
 

@@ -15,6 +15,9 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8"]
 c3d = ["ezc3d>=1.5"]  # Import von C3D-Dateien aus EMG and Motion Tools (emg_tracking.acquisition.c3d_import)
+# Analyse-Seite je Messung (emg_tracking.analysis): Notebook ausführen + die Pakete, die es importiert
+analyse = ["nbclient>=0.10", "nbconvert>=7", "ipykernel>=6", "pandas>=2", "matplotlib>=3.8", "seaborn>=0.13",
+           "scipy>=1.11", "scikit-learn>=1.4"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

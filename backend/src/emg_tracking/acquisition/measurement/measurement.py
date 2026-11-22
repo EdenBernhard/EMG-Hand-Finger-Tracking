@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from typing import Callable
 
-from emg_tracking.acquisition.csv_writer import RawCsvWriter
+from emg_tracking.acquisition.recording_writer import RecordingWriter
 from emg_tracking.acquisition.measurement.cue_csv_writer import CueCsvWriter
 from emg_tracking.acquisition.measurement.cue_schedule import CueSchedule
 from emg_tracking.acquisition.measurement.event_stream import EventStream
@@ -18,7 +18,7 @@ class Measurement:
     def __init__(
         self,
         schedule: CueSchedule,
-        raw_writer: RawCsvWriter,
+        raw_writer: RecordingWriter,
         cue_writer: CueCsvWriter,
         events: EventStream,
         sampling_rate_hz: int,

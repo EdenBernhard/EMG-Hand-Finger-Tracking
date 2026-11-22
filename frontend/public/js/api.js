@@ -30,6 +30,11 @@ export const api = {
     const frage = new URLSearchParams({ datei: datei.name, platzierungId: platzierungId || "", notiz: notiz || "" });
     return anfrage(`/api/probanden/${id}/import-c3d?${frage}`, { methode: "POST", datei });
   },
+  // Analyse je Aufnahme (Notebook aus Datenaufbereitung/): Namen mit fertiger Seite, Zustand, Start, Seite
+  analysen: (id) => anfrage(`/api/probanden/${id}/analysen`),
+  analyseZustand: (id, name) => anfrage(`/api/probanden/${id}/aufnahmen/${name}/analyse`),
+  starteAnalyse: (id, name) => anfrage(`/api/probanden/${id}/aufnahmen/${name}/analyse`, { methode: "POST" }),
+  analyseUrl: (id, name) => `/analyse/${id}/${name}`,
   // nach nicht bestandenem Impedanz-Check trotzdem messen
   setzeMessungFort: () => anfrage("/api/messung/fortsetzen", { methode: "POST" }),
   stoppeMessung: () => anfrage("/api/messung/stopp", { methode: "POST" }),

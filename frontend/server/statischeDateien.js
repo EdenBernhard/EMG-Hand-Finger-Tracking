@@ -13,7 +13,8 @@ const TYPEN = {
   ".jpg": "image/jpeg",
 };
 
-export async function sendeDatei(res, datei, { cache = false } = {}) {
+// kopf: zusätzliche Antwort-Kopfzeilen (z. B. Content-Security-Policy)
+export async function sendeDatei(res, datei, { cache = false, kopf = {} } = {}) {
   let inhalt;
   try {
     inhalt = await fs.readFile(datei);
@@ -23,6 +24,7 @@ export async function sendeDatei(res, datei, { cache = false } = {}) {
   res.writeHead(200, {
     "Content-Type": TYPEN[path.extname(datei).toLowerCase()] || "application/octet-stream",
     "Cache-Control": cache ? "max-age=3600" : "no-cache",
+    ...kopf,
   });
   res.end(inhalt);
 }

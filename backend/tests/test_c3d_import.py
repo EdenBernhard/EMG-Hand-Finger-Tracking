@@ -41,13 +41,12 @@ def test_recording_rejects_mismatched_shapes():
         AnalogRecording(("a",), ("V",), 0, np.zeros((1, 3)))
 
 
-def test_csv_has_index_time_and_channels():
+def test_csv_has_time_and_channels_like_motion_tools_export():
     rec = AnalogRecording(("EMG 5", "EMG 6"), ("V", "V"), RATE, np.array([[0.5, 1.5], [-2.0, 3.25]]))
     out = io.StringIO()
     write_analog_csv(out, rec)
     rows = list(csv.reader(io.StringIO(out.getvalue())))
-    assert rows == [["sample_index", "time_s", "EMG 5", "EMG 6"], ["0", "0.0", "0.5", "-2.0"],
-                    ["1", "0.0005", "1.5", "3.25"]]
+    assert rows == [["Time", "EMG 5", "EMG 6"], ["0.0", "0.5", "-2.0"], ["0.0005", "1.5", "3.25"]]
     assert rec.duration_s == 2 / RATE
 
 
@@ -66,11 +65,11 @@ def test_cli_imports_c3d_for_subject(tmp_path, monkeypatch, capsys):
 
     stem = event["recording"]
     assert stem.endswith("_testlauf-2-sensoren567")
-    folder = subjects / SUBJECT
+    folder = subjects / SUBJECT / "ohne_platzierung"  # Kontext ohne Platzierung
     assert (folder / f"{stem}.c3d").read_bytes() == source.read_bytes()
     rows = list(csv.reader(open(folder / f"{stem}.csv", encoding="utf-8")))
-    assert rows[0] == ["sample_index", "time_s", "EMG 5", "EMG 6"] and len(rows) == 41
-    assert [float(v) for v in rows[1][2:]] == [0.0, 40.0]
+    assert rows[0] == ["Time", "EMG 5", "EMG 6"] and len(rows) == 41
+    assert [float(v) for v in rows[1][1:]] == [0.0, 40.0]
     protocol = json.loads((folder / f"{stem}.protocol.json").read_text(encoding="utf-8"))
     assert protocol["source"] == "c3d" and protocol["original_file"] == "Testlauf 2 Sensoren567.c3d"
     assert protocol["context"] == {"notiz": "alt"} and protocol["channels"][0] == {"label": "EMG 5", "unit": "V"}
@@ -101,3 +100,15 @@ def test_import_refuses_to_overwrite(tmp_path):
 def test_cli_reports_errors_as_json(tmp_path, capsys):
     assert cli.main([str(tmp_path / "fehlt.c3d"), "--subject", SUBJECT, "--context", "[]"]) == 1
     assert json.loads(capsys.readouterr().out)["type"] == "error"
+
+
+def test_rebuild_rewrites_csv_from_original(tmp_path):
+    from emg_tracking.acquisition.c3d_import.rebuild import imported_recordings, rebuild_csv
+
+    source = tmp_path / "a.c3d"
+    write_c3d(source, ["EMG 1"], np.ones((1, 20)))
+    files, _ = cli.import_c3d(source, SUBJECT, "a.c3d", {}, tmp_path)
+    files.raw_csv.write_text("sample_index,time_s,EMG 1\n", encoding="utf-8")  # altes Format
+    (found,) = imported_recordings(tmp_path)
+    rebuild_csv(*found)
+    assert files.raw_csv.read_text(encoding="utf-8").splitlines()[:2] == ["Time,EMG 1", "0.0,1.0"]

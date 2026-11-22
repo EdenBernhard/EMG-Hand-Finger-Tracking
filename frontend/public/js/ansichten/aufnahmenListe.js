@@ -24,13 +24,16 @@ export function aufnahmenListe(p) {
       <td>${esc(dauerText(a.dauerS))}</td>
       <td>${esc(vorgaben(a))}</td>
       <td>${esc(impedanzKurz(a.impedanz))}</td>
-      <td class="klein"><code>${esc(a.name)}</code></td></tr>`).join("");
+      <td class="klein"><code>${esc(a.name)}</code></td>
+      <td class="analyse-zelle" data-analyse="${esc(a.name)}"></td></tr>`).join("");
   return `<div class="karte">
     <h2 style="margin-top:0">Bisherige Messungen</h2>
-    <p class="klein">Dateien unter <code>data/probanden/${esc(p.id)}/</code>: <code>&lt;Datei&gt;.csv</code> (Rohdaten),
-      <code>.cues.csv</code> (Bewegungsvorgaben mit Sample-Index), <code>.protocol.json</code> (Messplan, Platzierung, Notiz, Ablauf); bei C3D-Importen zusätzlich <code>.c3d</code> (Original), ohne <code>.cues.csv</code>.</p>
+    <p class="klein">Dateien unter <code>data/probanden/${esc(p.id)}/&lt;Platzierung&gt;_&lt;ID&gt;/</code>, je Elektroden-Platzierung ein Ordner
+      (ohne Platzierung: <code>ohne_platzierung/</code>): <code>&lt;Datei&gt;.csv</code> (Rohdaten),
+      <code>.events.csv</code> (PC-Zeit und USB-Verluste je SDK-Event), <code>.cues.csv</code> (Bewegungsvorgaben mit Sample-Index), <code>.protocol.json</code> (Messplan, Platzierung, Notiz, Ablauf); bei C3D-Importen zusätzlich <code>.c3d</code> (Original), ohne <code>.cues.csv</code>. Die CSV hat den Aufbau von EMG and Motion Tools; „Analysieren“ führt damit das Notebook
+      aus <code>Datenaufbereitung/</code> aus.</p>
     <div class="tabelle"><table>
-      <thead><tr><th>Datum</th><th>Messplan</th><th>Platzierung</th><th>Notiz</th><th>Dauer</th><th>Vorgaben</th><th>Impedanz</th><th>Datei</th></tr></thead>
+      <thead><tr><th>Datum</th><th>Messplan</th><th>Platzierung</th><th>Notiz</th><th>Dauer</th><th>Vorgaben</th><th>Impedanz</th><th>Datei</th><th>Analyse</th></tr></thead>
       <tbody>${zeilen}</tbody></table></div>
   </div>`;
 }

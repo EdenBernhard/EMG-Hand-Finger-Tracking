@@ -123,6 +123,11 @@ export class ProbandenSpeicher {
     });
   }
 
+  // Ordner des Probanden (dort und in den Platzierungs-Unterordnern liegen die Messungen des Backends)
+  ordnerVon(id) {
+    return path.dirname(this.#pfad(id));
+  }
+
   bildPfad(id, datei) {
     if (!BILD_MUSTER.test(datei)) throw new HttpFehler(404, "Bild nicht gefunden.");
     return this.#pfad(id, datei);

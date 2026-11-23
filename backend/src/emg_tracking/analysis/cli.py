@@ -20,7 +20,7 @@ REPO_ROOT = Path(__file__).resolve().parents[4]  # backend/src/emg_tracking/anal
 DEFAULT_NOTEBOOK = REPO_ROOT / "Datenaufbereitung" / "Clustering_ Analyse.ipynb"
 # Das Notebook nennt den Kernel „ds“ (Umgebung des Autors); hier läuft es mit dem Python dieses Prozesses.
 DEFAULT_KERNEL = "python3"
-DEFAULT_CELL_TIMEOUT_S = 1800  # lange Aufnahmen: rolling().apply() im Notebook ist langsam
+DEFAULT_CELL_TIMEOUT_S = 1800  # großzügig für sehr lange Aufnahmen
 TEMP_SUFFIX = ".tmp"
 
 

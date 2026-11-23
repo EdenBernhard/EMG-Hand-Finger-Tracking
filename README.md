@@ -278,15 +278,15 @@ CSVs, die vor einer Formatänderung importiert wurden, erzeugt `python -m emg_tr
 In der Webapp hat jede Zeile unter **„Bisherige Messungen“** den Knopf **„Analysieren“**. Der Server startet dann `python -m emg_tracking.analysis.cli`. Dieses führt das Notebook `Datenaufbereitung/Clustering_ Analyse.ipynb` **unverändert** mit der CSV dieser Messung aus und speichert das Ergebnis als `<Stamm>.analyse.html` neben der CSV. Danach öffnet **„Anzeigen“** die Seite mit allen Tabellen und Grafiken in einem neuen Tab, **„Neu“** berechnet sie erneut, z. B. nach Änderungen am Notebook. Eine kurze Aufnahme braucht etwa 30 s, sehr lange (mehrere Minuten) entsprechend länger. Es läuft höchstens eine Analyse gleichzeitig.
 
 So bleibt das Notebook unberührt:
-- Es liest seine CSV über einen festen Namen (`./Testlauf_2_Sensoren567.csv`). Die Analyse läuft deshalb in einem leeren temporären Ordner, in dem die gewählte CSV unter genau diesem Namen liegt (als harter Link, ohne Kopie).
+- Der absolute Pfad der Aufnahme wird dem Notebook über die Umgebungsvariable `EMG_ANALYSIS_CSV` übergeben. Damit findet es auch die Nebendateien (`.protocol.json`, `.cues.csv`). Ohne die Variable wertet das Notebook alle Aufnahmen aus, die zu `RECORDINGS_GLOB` passen (z. B. alle einer Platzierung). Arbeitsordner ist ein leerer temporärer Ordner.
 - Die Notebook-Datei wird nur gelesen. Statt des Kernels „ds“ aus den Notebook-Metadaten läuft es mit dem Python des Backends.
 - Voraussetzung: `pip install -e ".[analyse]"` (Jupyter zum Ausführen plus pandas, matplotlib, seaborn, scipy, scikit-learn, also die Imports des Notebooks).
 - Die Seite lädt nichts aus dem Internet (MathJax und require.js von nbconvert werden entfernt). Sie wird ohne Skripte ausgeliefert und ist, wie alle Daten, nur vom Laptop selbst abrufbar.
 
-**Grenzen, die im Notebook liegen, nicht in der Webapp:**
-- Es wertet fest `Emg_5`–`Emg_7` und `Acc_5`–`Acc_7` aus.
-- Die Bewegungsabschnitte (`movement_intervals`) sind die 74 s des ersten Testlaufs. ARI und NMI sind also nur für Aufnahmen nach diesem Ablauf aussagekräftig.
-- Bei Aufnahmen über 74 s bricht die letzte Vergleichszelle ab (unterschiedlich viele Fenster). Die Seite zeigt dann alles bis dahin und nennt den Fehler.
+**Was das Notebook auswertet:**
+- Die Sensoren erkennt es selbst: Sensor N gilt als benutzt, wenn `Emg_N` existiert und nicht konstant ist.
+- Die echten Bewegungen (für ARI/NMI) kommen aus der `.cues.csv` der Messung, sonst aus `MANUAL_INTERVALS` im Notebook (Aufnahmen mit mehreren Bewegungen ohne Cues, z. B. `kon`), sonst aus dem Dateinamen (eine Bewegung je Aufnahme). Fenster mit schwacher EMG-Aktivität werden als `ruhe` gelabelt.
+- Hat eine Aufnahme einen Eintrag in `MANUAL_INTERVALS`, aber noch keine Zeiten, bricht die Analyse mit einem Hinweis ab. Die Seite zeigt dann alles bis dahin, auch den Plot zum Ablesen der Zeiten.
 
 ---
 

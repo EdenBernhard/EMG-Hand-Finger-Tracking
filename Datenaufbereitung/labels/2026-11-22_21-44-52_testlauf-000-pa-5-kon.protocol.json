@@ -1,0 +1,44 @@
+{
+  "label": "testlauf-000-pa-5-kon",
+  "started_at": "2026-11-22T21:44:52",
+  "sampling_rate_hz": 2000,
+  "sensor_ids": [
+    1,
+    2,
+    4,
+    6,
+    7
+  ],
+  "sdk": "EMG and Motion Tools (Export, nicht über die Pipeline aufgenommen)",
+  "n_samples": 159800,
+  "n_cues": 16,
+  "end_sample_index": 156000,
+  "completed": true,
+  "stopped_early": false,
+  "files": {
+    "raw": "2026-11-22_21-44-52_testlauf-000-pa-5-kon.csv",
+    "cues": "2026-11-22_21-44-52_testlauf-000-pa-5-kon.cues.csv"
+  },
+  "context": {
+    "notiz": "Labels nachträglich aus den Signalen gesetzt (keine Vorgaben während der Aufnahme). Ablauf: 15 Bewegungen aus README '1. Testrun Datenablauf'. Rohdaten-CSV hat die Spalte Time statt sample_index: sample_index = round(Time · 2000). Sensor 5 ohne Signal (EMG konstant −3300 µV), Acc von Sensor 2 unruhig.",
+    "labelquelle": "post hoc, Sichtung von RMS-Hüllkurve (20–450 Hz, Notch 50 Hz, 100 ms), Acc-Dynamik und Acc-Lage",
+    "sicherheit_je_cue": {
+      "0": "hoch",
+      "1": "hoch",
+      "2": "hoch",
+      "3": "hoch",
+      "4": "–",
+      "5": "mittel",
+      "6": "unsicher",
+      "7": "hoch",
+      "8": "unsicher",
+      "9": "hoch",
+      "10": "mittel",
+      "11": "unsicher",
+      "12": "mittel",
+      "13": "hoch",
+      "14": "hoch",
+      "15": "hoch"
+    }
+  }
+}

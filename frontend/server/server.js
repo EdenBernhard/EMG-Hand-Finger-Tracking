@@ -8,6 +8,7 @@ import { C3dImport } from "./c3dImport.js";
 import { HandyZugang } from "./handyZugang.js";
 import { lanAdressen } from "./netzAdressen.js";
 import { AnalyseSteuerung } from "./analyseSteuerung.js";
+import { VorlagenSpeicher } from "./vorlagenSpeicher.js";
 import { neueAufnahme } from "../public/js/modell/aufnahmen.js";
 
 const speicher = new ProbandenSpeicher(KONFIGURATION.datenOrdner);
@@ -16,7 +17,8 @@ const steuerung = new MessungSteuerung(KONFIGURATION.messung,
 const c3dImport = new C3dImport(KONFIGURATION.c3dImport);
 const handyZugang = new HandyZugang(KONFIGURATION.handy.gueltigMin);
 const analyse = new AnalyseSteuerung(KONFIGURATION.analyse);
-const server = http.createServer(erstelleRouter(speicher, steuerung, { ...KONFIGURATION, c3dImport, handyZugang, analyse }));
+const vorlagen = new VorlagenSpeicher(KONFIGURATION.vorlagenDatei);
+const server = http.createServer(erstelleRouter(speicher, steuerung, { ...KONFIGURATION, c3dImport, handyZugang, analyse, vorlagen }));
 
 server.listen(KONFIGURATION.port, () => {
   console.log(`Elektroden-Platzierung läuft auf http://localhost:${KONFIGURATION.port}`);

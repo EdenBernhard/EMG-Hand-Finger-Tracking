@@ -76,7 +76,7 @@ export class MessungSteuerung {
     prozess.stdin.write(JSON.stringify({
       subject_id: probandId, movements: plan.bewegungen.map((b) => ({ name: b.name, count: b.anzahl })),
       interval_s: plan.intervallS,
-      repetitions: plan.wiederholungen, lead_in_s: plan.vorlaufS,
+      repetitions: plan.wiederholungen, lead_in_s: plan.vorlaufS, pause_s: plan.pauseS,
       label: kontext.messplan?.name || "", context: kontext,
     }) +"\n");
     this.#melde({ type: "state", ...this.#zustand });

@@ -1,11 +1,12 @@
-// Messplan eines Probanden: welche Bewegungen wie oft direkt hintereinander, in welchem Takt und
-// wie oft der ganze Ablauf durchlaufen wird. Wird von Browser (Eingabe) und Server (Prüfung vor dem
+// Messplan eines Probanden: welche Bewegungen wie oft direkt hintereinander, in welchem Takt, mit
+// welcher Pause nach jeder Bewegung und wie oft der ganze Ablauf durchlaufen wird. Wird von Browser (Eingabe) und Server (Prüfung vor dem
 // Start) gleichermaßen genutzt.
 
 export const GRENZEN = {
   intervallS: { min: 1, max: 60, standard: 5 },
   wiederholungen: { min: 1, max: 50, standard: 5 },   // Durchläufe des ganzen Ablaufs
   vorlaufS: { min: 0, max: 30, standard: 3 },          // Ruhe vor der ersten Bewegung
+  pauseS: { min: 0, max: 60, standard: 0 },            // Ruhe nach jeder Bewegung (eigene Vorgabe), 0 = keine
   anzahl: { min: 1, max: 20, standard: 1 },            // je Bewegung, direkt hintereinander
   maxBewegungen: 20,
   maxBewegungLaenge: 40,
@@ -42,13 +43,18 @@ export function bereinigeMessplan(x = {}) {
     intervallS: zahlImBereich(x.intervallS, GRENZEN.intervallS),
     wiederholungen: zahlImBereich(x.wiederholungen, GRENZEN.wiederholungen, true),
     vorlaufS: zahlImBereich(x.vorlaufS, GRENZEN.vorlaufS),
+    pauseS: zahlImBereich(x.pauseS, GRENZEN.pauseS),
   };
 }
 
 export const vorgabenJeDurchlauf = (plan) => plan.bewegungen.reduce((n, b) => n + b.anzahl, 0);
 
-export const anzahlVorgaben = (plan) => vorgabenJeDurchlauf(plan) * plan.wiederholungen;
+// Bewegungen über alle Durchläufe, ohne Pausen
+export const anzahlBewegungen = (plan) => vorgabenJeDurchlauf(plan) * plan.wiederholungen;
 
-export const dauerS = (plan) => plan.vorlaufS + anzahlVorgaben(plan) * plan.intervallS;
+// Alle Vorgaben mit eigenem Piepton: mit Pause folgt jeder Bewegung eine Vorgabe „Ruhe“ (wie im Backend)
+export const anzahlVorgaben = (plan) => anzahlBewegungen(plan) * (plan.pauseS > 0 ? 2 : 1);
+
+export const dauerS = (plan) => plan.vorlaufS + anzahlBewegungen(plan) * (plan.intervallS + plan.pauseS);
 
 export const bewegungText = (b) => (b.anzahl > 1 ? `${b.name} ×${b.anzahl}` : b.name);

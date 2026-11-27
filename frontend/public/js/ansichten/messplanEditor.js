@@ -1,9 +1,9 @@
-// Eingabe eines Messplans: Name, Bewegungen mit Anzahl (direkt hintereinander), Intervall, Durchläufe,
-// Vorlauf. Änderungen landen sofort im übergebenen Eintrag und werden automatisch gespeichert.
+// Eingabe eines Messplans: Name, Bewegungen mit Anzahl (direkt hintereinander), Intervall, Pause,
+// Durchläufe, Vorlauf. Änderungen landen sofort im übergebenen Eintrag und werden automatisch gespeichert.
 import { sitzung } from "../sitzung.js";
 import { esc, dauerText } from "../hilfen.js";
 import {
-  GRENZEN, STANDARD_BEWEGUNGEN, bereinigeMessplan, neueBewegung, anzahlVorgaben, vorgabenJeDurchlauf, dauerS,
+  GRENZEN, STANDARD_BEWEGUNGEN, bereinigeMessplan, neueBewegung, anzahlBewegungen, vorgabenJeDurchlauf, dauerS,
 } from "../modell/messplan.js";
 
 const MAX_NAME = 80;
@@ -22,11 +22,11 @@ const zeile = (b, i) => `
   </li>`;
 
 const zusammenfassung = (plan) => plan.bewegungen.length
-  ? `${anzahlVorgaben(plan)} Vorgaben (${vorgabenJeDurchlauf(plan)} je Durchlauf × ${plan.wiederholungen}) · ` +
-    `Dauer ca. ${dauerText(dauerS(plan))}`
+  ? `${anzahlBewegungen(plan)} Bewegungen (${vorgabenJeDurchlauf(plan)} je Durchlauf × ${plan.wiederholungen})` +
+    (plan.pauseS > 0 ? `, nach jeder ${plan.pauseS} s Pause` : "") + ` · Dauer ca. ${dauerText(dauerS(plan))}`
   : "Bitte mindestens eine Bewegung eintragen.";
 
-// eintrag: { id, name, bewegungen, intervallS, wiederholungen, vorlaufS }; beiNamensAenderung(name) z. B. für die Tabs
+// eintrag: { id, name, bewegungen, intervallS, pauseS, wiederholungen, vorlaufS }; beiNamensAenderung(name) z. B. für die Tabs
 export function zeigeMessplanEditor(el, eintrag, { beiNamensAenderung = () => {} } = {}) {
   // Arbeitsliste der Zeilen, auch mit noch leerem Namen; gespeichert wird die bereinigte Fassung
   let zeilen = eintrag.bewegungen.map((b) => ({ ...b }));
@@ -37,6 +37,7 @@ export function zeigeMessplanEditor(el, eintrag, { beiNamensAenderung = () => {}
       <input type="text" id="mp-name" maxlength="${MAX_NAME}" value="${esc(eintrag.name)}" placeholder="z. B. Finger einzeln">
       <p class="klein" style="margin-top:.8rem">Zu jedem Piepton wird die nächste Bewegung angezeigt und ausgeführt, bis der nächste Ton kommt.
         <strong>Anzahl</strong>: so oft wird die Bewegung direkt hintereinander angesagt, jedes Mal mit eigenem Ton (z. B. Pinch 3×).
+        <strong>Pause</strong>: Ruhe nach jeder einzelnen Bewegung, mit eigenem Ton und als „Ruhe“ gelabelt (0 = keine Pause).
         <strong>Durchläufe</strong>: so oft wird die ganze Liste wiederholt.</p>
       <ol class="bewegungen" id="mp-liste"></ol>
       <div class="reihe" style="margin:.4rem 0 .9rem">
@@ -45,6 +46,7 @@ export function zeigeMessplanEditor(el, eintrag, { beiNamensAenderung = () => {}
       </div>
       <div class="einstellungen">
         ${zahlFeld("mp-intervall", "Intervall", "s", eintrag.intervallS, GRENZEN.intervallS, 0.5)}
+        ${zahlFeld("mp-pause", "Pause danach", "s", eintrag.pauseS, GRENZEN.pauseS, 0.5)}
         ${zahlFeld("mp-wiederholungen", "Durchläufe", "×", eintrag.wiederholungen, GRENZEN.wiederholungen, 1)}
         ${zahlFeld("mp-vorlauf", "Vorlauf (Ruhe)", "s", eintrag.vorlaufS, GRENZEN.vorlaufS, 0.5)}
       </div>
@@ -56,6 +58,7 @@ export function zeigeMessplanEditor(el, eintrag, { beiNamensAenderung = () => {}
     Object.assign(eintrag, bereinigeMessplan({
       bewegungen: zeilen,
       intervallS: el.querySelector("#mp-intervall").value,
+      pauseS: el.querySelector("#mp-pause").value,
       wiederholungen: el.querySelector("#mp-wiederholungen").value,
       vorlaufS: el.querySelector("#mp-vorlauf").value,
     }));

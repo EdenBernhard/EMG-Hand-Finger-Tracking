@@ -76,6 +76,23 @@ def test_schedule_repeats_single_movement_in_a_row():
     assert s.end_sample_index == 160
 
 
+def test_schedule_adds_rest_cue_after_each_movement():
+    plan = MeasurementProtocol.from_dict(
+        {**PLAN, "movements": [{"name": "Faust", "count": 2}], "repetitions": 1, "lead_in_s": 0, "pause_s": 0.02})
+    s = CueSchedule(plan, FS)
+    assert [(c.index, c.movement, c.in_row, c.in_row_of, c.sample_index) for c in s.cues] == [
+        (0, "Faust", 1, 2, 0), (1, "Ruhe", 1, 1, 20), (2, "Faust", 2, 2, 60), (3, "Ruhe", 1, 1, 80)]
+    assert s.end_sample_index == 120  # endet nach der letzten Pause
+
+
+def test_protocol_validates_pause():
+    assert MeasurementProtocol.from_dict(PLAN).pause_s == 0
+    p = MeasurementProtocol.from_dict({**PLAN, "pause_s": 10})
+    assert p.pause_s == 10 and MeasurementProtocol.from_dict(p.to_dict()) == p
+    with pytest.raises(ValueError):
+        MeasurementProtocol.from_dict({**PLAN, "pause_s": -1})
+
+
 def test_schedule_reports_each_cue_once():
     s = CueSchedule(MeasurementProtocol.from_dict(PLAN), FS)
     assert s.due(10) == []  # Sample 10 ist noch nicht da (Indizes 0..9)

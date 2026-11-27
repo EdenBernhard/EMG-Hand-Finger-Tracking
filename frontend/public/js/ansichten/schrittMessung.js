@@ -6,6 +6,7 @@ import { dauerText } from "../hilfen.js";
 import { ton } from "../ton.js";
 import { normalisiereMessplaene } from "../modell/messplaene.js";
 import { zeigeMessplanAuswahl } from "./messplanAuswahl.js";
+import { zeigeVorlagenAuswahl } from "./vorlagenAuswahl.js";
 import { zeigeMessplanEditor } from "./messplanEditor.js";
 import { zeigeMessungStart } from "./messungStart.js";
 import { erstelleLiveAnzeige } from "./messungLive.js";
@@ -52,10 +53,11 @@ export function zeigeMessung(el, messplanId) {
   const zeigeVorbereitung = (gesperrt = false) => {
     live?.beende();
     live = null;
-    haupt.innerHTML = `<div id="ms-auswahl"></div><div id="ms-plan"></div><div id="ms-start"></div>`;
+    haupt.innerHTML = `<div id="ms-auswahl"></div><div id="ms-vorlagen"></div><div id="ms-plan"></div><div id="ms-start"></div>`;
     const tabsNeu = zeigeMessplanAuswahl(haupt.querySelector("#ms-auswahl"), p, eintrag);
+    const vorlagenNeu = zeigeVorlagenAuswahl(haupt.querySelector("#ms-vorlagen"), p, eintrag);
     const startNeu = zeigeMessungStart(haupt.querySelector("#ms-start"), p, eintrag, { gesperrt, meldung });
-    zeigeMessplanEditor(haupt.querySelector("#ms-plan"), eintrag, { beiNamensAenderung: () => { tabsNeu(); startNeu(); } });
+    zeigeMessplanEditor(haupt.querySelector("#ms-plan"), eintrag, { beiNamensAenderung: () => { tabsNeu(); vorlagenNeu(); startNeu(); } });
   };
   const zeigeLive = () => {
     live ||= erstelleLiveAnzeige(haupt, zustand.kontext);

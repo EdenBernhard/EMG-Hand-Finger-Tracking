@@ -46,7 +46,12 @@ function laufe() {
   if (modus === "stopp") return;
   const vorgaben = [];
   for (let r = 1; r <= plan.repetitions; r++) {
-    for (const m of plan.movements) for (let i = 1; i <= m.count; i++) vorgaben.push([r, m.name]);
+    for (const m of plan.movements) {
+      for (let i = 1; i <= m.count; i++) {
+        vorgaben.push([r, m.name]);
+        if (plan.pause_s > 0) vorgaben.push([r, "Ruhe"]);
+      }
+    }
   }
   sende({ type: "recording", first_cue_in_s: plan.lead_in_s, total_cues: vorgaben.length, duration_s: 1,
     echo: { label: plan.label, context: plan.context } });   // nur für die Tests: was bei Python ankam

@@ -1,4 +1,4 @@
-// Ordnet Anfragen den Aktionen zu: REST-API für Probanden, Fotos, Messungen und die Webseite selbst.
+// Ordnet Anfragen den Aktionen zu: REST-API für Probanden, Fotos, Messplan-Vorlagen, Messungen und die Webseite selbst.
 import { HttpFehler, sendeJson, sendeLeer, leseJson } from "./http.js";
 import { sendeDatei, dateiImOrdner } from "./statischeDateien.js";
 import { sendeEreignisStrom } from "./ereignisStrom.js";
@@ -14,10 +14,10 @@ const SEITEN = ["innen", "oben"];
 const ANALYSE_KOPF = { "Content-Security-Policy":
   "sandbox; default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:" };
 
-// c3dImport, handyZugang, analyse: Instanzen der jeweiligen Klasse; fehlt eine, gibt es die Funktion nicht (404)
+// c3dImport, handyZugang, analyse, vorlagen: Instanzen der jeweiligen Klasse; fehlt eine, gibt es die Funktion nicht (404)
 // adressen: liefert die WLAN-Adressen für die Handy-Links (in Tests ersetzbar)
 export function erstelleRouter(speicher, steuerung,
-  { publicOrdner, maxAnfrageBytes, c3dImport, handyZugang, analyse, adressen = lanAdressen }) {
+  { publicOrdner, maxAnfrageBytes, c3dImport, handyZugang, analyse, vorlagen, adressen = lanAdressen }) {
   const body = (req) => leseJson(req, maxAnfrageBytes);
   const analyseDienst = () => {
     if (!analyse) throw new HttpFehler(404, "Nicht gefunden.");
@@ -32,6 +32,10 @@ export function erstelleRouter(speicher, steuerung,
     if (!handyZugang) throw new HttpFehler(404, "Nicht gefunden.");
     return handyZugang;
   };
+  const vorlagenDienst = () => {
+    if (!vorlagen) throw new HttpFehler(404, "Nicht gefunden.");
+    return vorlagen;
+  };
 
   // [Methode, Muster, Aktion(req, res, ...Parameter)]
   const routen = [
@@ -42,6 +46,10 @@ export function erstelleRouter(speicher, steuerung,
     ["DELETE", /^\/api\/probanden\/([^/]+)$/, async (req, res, id) => { await speicher.loesche(id); sendeLeer(res); }],
     ["POST", /^\/api\/probanden\/([^/]+)\/bild\/([^/]+)$/,
       async (req, res, id, seite) => sendeJson(res, 200, await speicher.speichereBild(id, seite, await body(req)))],
+    // Messplan-Vorlagen für alle Probanden: Standard-Messpläne (fest) und eigene (speichern, löschen)
+    ["GET", /^\/api\/messplan-vorlagen$/, async (req, res) => sendeJson(res, 200, await vorlagenDienst().liste())],
+    ["POST", /^\/api\/messplan-vorlagen$/, async (req, res) => sendeJson(res, 200, await vorlagenDienst().speichere(await body(req)))],
+    ["DELETE", /^\/api\/messplan-vorlagen\/([^/]+)$/, async (req, res, id) => sendeJson(res, 200, await vorlagenDienst().loesche(id))],
     ["POST", /^\/api\/probanden\/([^/]+)\/messung$/, async (req, res, id) => {
       const { plan, kontext } = erstelleAuftrag(await speicher.lade(id), await body(req));   // 404/400 vor dem Start
       sendeJson(res, 202, steuerung.starte(id, plan, kontext));

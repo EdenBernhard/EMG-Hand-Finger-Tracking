@@ -5,7 +5,8 @@ Aufruf im Ordner ``backend``: ``python -m emg_tracking.acquisition.measurement.c
 - stdin, erste Zeile: Messplan als JSON (siehe ``MeasurementProtocol``), z. B.
   ``{"subject_id": "P01", "movements": ["Faust", {"name": "Pinch", "count": 3}], "interval_s": 5,
   "repetitions": 3, "lead_in_s": 3, "label": "Finger einzeln", "context": {"notiz": "..."}}``
-  (``count``: so oft direkt hintereinander, Standard 1; ``label`` und ``context`` sind optional)
+  (``count``: so oft direkt hintereinander, Standard 1; optional ``pause_s``: Ruhe nach jeder
+  Bewegung als eigene Vorgabe ``Ruhe``, Standard 0; ``label`` und ``context`` sind optional)
 - stdin, danach: ``{"command": "stop"}`` beendet die Messung vorzeitig (ebenso das Ende von stdin);
   ``{"command": "continue"}`` misst nach einem nicht bestandenen Impedanz-Check trotzdem.
 - stdout: ein JSON-Objekt pro Zeile mit ``type`` = ``checking_impedance``, ``impedance``,

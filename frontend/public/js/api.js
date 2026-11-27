@@ -23,6 +23,10 @@ export const api = {
   ladeBildHoch: (id, seite, bild) => anfrage(`/api/probanden/${id}/bild/${seite}`, { methode: "POST", daten: bild }),
   // Zugang für die Handy-Seite (Fotos per QR-Code); gibt { urls, ablauf } zurück
   erstelleHandyZugang: (id) => anfrage(`/api/probanden/${id}/handy-zugang`, { methode: "POST" }),
+  // Messplan-Vorlagen für alle Probanden (Standard-Messpläne und eigene); speichern/löschen geben die neue Liste zurück
+  vorlagen: () => anfrage("/api/messplan-vorlagen"),
+  speichereVorlage: (messplan) => anfrage("/api/messplan-vorlagen", { methode: "POST", daten: messplan }),
+  loescheVorlage: (id) => anfrage(`/api/messplan-vorlagen/${id}`, { methode: "DELETE" }),
   // auftrag: { messplanId, platzierungId, notiz }
   starteMessung: (id, auftrag) => anfrage(`/api/probanden/${id}/messung`, { methode: "POST", daten: auftrag }),
   // C3D-Datei aus EMG and Motion Tools; angaben: { platzierungId, notiz }. Gibt die neue Aufnahme zurück.

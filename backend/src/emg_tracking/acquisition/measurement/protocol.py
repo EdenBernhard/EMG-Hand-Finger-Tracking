@@ -1,4 +1,4 @@
-"""Messplan einer Messung: welche Bewegungen, wie oft direkt hintereinander, in welchem Takt, wie oft insgesamt."""
+"""Messplan einer Messung: welche Bewegungen, wie oft direkt hintereinander, in welchem Takt, mit welcher Pause, wie oft insgesamt."""
 
 from __future__ import annotations
 
@@ -39,6 +39,7 @@ class MeasurementProtocol:
     interval_s: float  # Abstand zwischen zwei Vorgaben
     repetitions: int  # wie oft der ganze Ablauf durchlaufen wird
     lead_in_s: float  # Vorlauf ohne Vorgabe zwischen erstem Messwert und erster Bewegung
+    pause_s: float = 0.0  # Ruhe nach jeder Bewegung (eigene Vorgabe), 0 = Bewegungen direkt hintereinander
     label: str = ""  # Name des Messplans, z. B. "Finger einzeln"; fließt in den Dateinamen ein
     # Angaben der Webapp, die nur dokumentiert, nicht ausgewertet werden (Platzierung, Notiz, ...)
     context: dict[str, Any] = field(default_factory=dict)
@@ -58,11 +59,14 @@ class MeasurementProtocol:
         lead_in_s = float(raw.get("lead_in_s", 0))
         if lead_in_s < 0:
             raise ValueError(f"lead_in_s darf nicht negativ sein: {lead_in_s}")
+        pause_s = float(raw.get("pause_s", 0))
+        if pause_s < 0:
+            raise ValueError(f"pause_s darf nicht negativ sein: {pause_s}")
         label = str(raw.get("label", "")).strip()[:MAX_LABEL_LENGTH]
         context = raw.get("context") or {}
         if not isinstance(context, dict):
             raise ValueError(f"context muss ein JSON-Objekt sein: {context!r}")
-        return cls(subject_id, movements, interval_s, repetitions, lead_in_s, label, context)
+        return cls(subject_id, movements, interval_s, repetitions, lead_in_s, pause_s, label, context)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -71,6 +75,7 @@ class MeasurementProtocol:
             "interval_s": self.interval_s,
             "repetitions": self.repetitions,
             "lead_in_s": self.lead_in_s,
+            "pause_s": self.pause_s,
             "label": self.label,
             "context": self.context,
         }

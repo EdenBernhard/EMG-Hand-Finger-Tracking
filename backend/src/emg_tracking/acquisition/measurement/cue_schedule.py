@@ -19,16 +19,26 @@ class Cue:
     sample_index: int
 
 
+# Bewegung der Pausen-Vorgaben; gleicher Name wie die Ruhe-Bewegung der Standardliste der Webapp
+REST_MOVEMENT = "Ruhe"
+
+
 class CueSchedule:
-    """Vorgabe k liegt bei ``Vorlauf + k · Intervall``; die Messung endet ein Intervall nach der letzten.
+    """Jede Bewegung dauert ein Intervall, danach folgt (bei ``pause_s > 0``) eine Pause als eigene Vorgabe.
 
     Reihenfolge: je Durchlauf alle Bewegungen der Liste, jede so oft direkt hintereinander wie ihre
-    Anzahl. Rundung auf ganze Samples: Bei 2000 Hz ist der Fehler höchstens 0,25 ms je Vorgabe und
-    summiert sich nicht, weil jede Vorgabe direkt aus Vorlauf und Intervall berechnet wird.
+    Anzahl; mit Pause steht nach jeder einzelnen Bewegung eine Vorgabe ``Ruhe``. Die Messung endet
+    nach der letzten Vorgabe (Bewegung bzw. Pause). Die Pausen stehen als eigene Zeilen in der
+    ``.cues.csv``, damit die Labels bis zur nächsten Vorgabe stimmen.
+
+    Rundung auf ganze Samples: Bei 2000 Hz ist der Fehler höchstens 0,25 ms je Vorgabe und summiert
+    sich nicht, weil jede Vorgabe direkt aus Vorlauf, Intervall und Pause berechnet wird.
     """
 
     def __init__(self, protocol: MeasurementProtocol, sampling_rate_hz: int) -> None:
         interval = protocol.interval_s * sampling_rate_hz
+        pause = protocol.pause_s * sampling_rate_hz
+        step = interval + pause
         lead_in = protocol.lead_in_s * sampling_rate_hz
         order = [
             (r + 1, m.name, i + 1, m.count)
@@ -36,11 +46,17 @@ class CueSchedule:
             for m in protocol.movements
             for i in range(m.count)
         ]
+        cues = []
+        for k, (repetition, name, in_row, in_row_of) in enumerate(order):
+            start = lead_in + k * step
+            cues.append((repetition, name, in_row, in_row_of, start))
+            if pause > 0:
+                cues.append((repetition, REST_MOVEMENT, 1, 1, start + interval))
         self.cues = tuple(
-            Cue(k, repetition, name, in_row, in_row_of, round(lead_in + k * interval))
-            for k, (repetition, name, in_row, in_row_of) in enumerate(order)
+            Cue(index, repetition, name, in_row, in_row_of, round(start))
+            for index, (repetition, name, in_row, in_row_of, start) in enumerate(cues)
         )
-        self.end_sample_index = round(lead_in + len(order) * interval)
+        self.end_sample_index = round(lead_in + len(order) * step)
         self._next = 0
 
     def due(self, samples_received: int) -> list[Cue]:

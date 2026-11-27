@@ -15,6 +15,8 @@ export const KONFIGURATION = {
   port: Number(process.env.PORT) || 3000,
   // Gemeinsam mit dem Backend (subjects_dir in backend/config/acquisition.toml): dort landen auch die Messungen
   datenOrdner: path.resolve(process.env.DATA_DIR || path.join(REPO_ROOT, "data", "probanden")),
+  // Eigene Messplan-Vorlagen, für alle Probanden gleich (die Standard-Messpläne stehen im Code)
+  vorlagenDatei: path.resolve(process.env.VORLAGEN_DATEI || path.join(REPO_ROOT, "data", "messplan_vorlagen.json")),
   publicOrdner: path.join(FRONTEND_ROOT, "public"),
   maxAnfrageBytes: 20 * 1024 * 1024,   // Fotos kommen als Base64, im Browser auf 1600 px verkleinert
   messung: {

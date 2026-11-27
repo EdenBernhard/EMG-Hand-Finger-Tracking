@@ -285,8 +285,7 @@ So bleibt das Notebook unberührt:
 
 **Was das Notebook auswertet:**
 - Die Sensoren erkennt es selbst: Sensor N gilt als benutzt, wenn `Emg_N` existiert und nicht konstant ist.
-- Die echten Bewegungen (für ARI/NMI) kommen aus der `.cues.csv` der Messung, sonst aus `MANUAL_INTERVALS` im Notebook (Aufnahmen mit mehreren Bewegungen ohne Cues, z. B. `kon`), sonst aus dem Dateinamen (eine Bewegung je Aufnahme). Fenster mit schwacher EMG-Aktivität werden als `ruhe` gelabelt.
-- Hat eine Aufnahme einen Eintrag in `MANUAL_INTERVALS`, aber noch keine Zeiten, bricht die Analyse mit einem Hinweis ab. Die Seite zeigt dann alles bis dahin, auch den Plot zum Ablesen der Zeiten.
+- Die echten Bewegungen (für ARI/NMI) kommen aus der `.cues.csv` der Messung, sonst aus dem Dateinamen (eine Bewegung je Aufnahme). Fenster mit schwacher EMG-Aktivität werden als `ruhe` gelabelt.
 
 ---
 

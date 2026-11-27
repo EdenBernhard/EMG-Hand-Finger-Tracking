@@ -102,6 +102,16 @@ export class ProbandenSpeicher {
     });
   }
 
+  // Entfernt den Eintrag einer Aufnahme (die Dateien löscht aufnahmeDateien.js); 404, wenn es ihn nicht gibt
+  entferneAufnahme(id, name) {
+    return this.#exklusiv(id, async () => {
+      const p = await this.lade(id);
+      if (!p.aufnahmen.some((a) => a.name === name)) throw new HttpFehler(404, "Aufnahme nicht gefunden.");
+      p.aufnahmen = p.aufnahmen.filter((a) => a.name !== name);
+      return this.#speichere(p);
+    });
+  }
+
   loesche(id) {
     return this.#exklusiv(id, async () => {
       await this.lade(id);

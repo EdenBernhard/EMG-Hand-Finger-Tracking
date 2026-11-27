@@ -29,6 +29,8 @@ export const api = {
   loescheVorlage: (id) => anfrage(`/api/messplan-vorlagen/${id}`, { methode: "DELETE" }),
   // auftrag: { messplanId, platzierungId, notiz }
   starteMessung: (id, auftrag) => anfrage(`/api/probanden/${id}/messung`, { methode: "POST", daten: auftrag }),
+  // Löscht eine Aufnahme samt Dateien; gibt die verbleibenden Aufnahmen zurück
+  loescheAufnahme: (id, name) => anfrage(`/api/probanden/${id}/aufnahmen/${name}`, { methode: "DELETE" }),
   // Analyse je Aufnahme (Notebook aus Datenaufbereitung/): Namen mit fertiger Seite, Zustand, Start, Seite
   analysen: (id) => anfrage(`/api/probanden/${id}/analysen`),
   analyseZustand: (id, name) => anfrage(`/api/probanden/${id}/aufnahmen/${name}/analyse`),

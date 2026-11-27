@@ -7,6 +7,7 @@ import { HttpFehler } from "./http.js";
 const NAME_MUSTER = /^[A-Za-z0-9_-]{1,80}$/;   // wie in public/js/modell/aufnahmen.js
 const CSV_ENDUNG = ".csv";
 export const ANALYSE_ENDUNG = ".analyse.html";
+const NEBENDATEI_TRENNER = ".";   // <name>.csv, <name>.cues.csv, <name>.protocol.json, ...
 
 async function ordnerMitUnterordnern(probandOrdner) {
   const eintraege = await fs.readdir(probandOrdner, { withFileTypes: true }).catch(() => []);
@@ -23,6 +24,21 @@ export async function findeAufnahme(probandOrdner, name) {
     }
   }
   throw new HttpFehler(404, "Rohdaten der Aufnahme nicht gefunden.");
+}
+
+// Löscht alle Dateien einer Aufnahme (Rohdaten und Nebendateien <name>.*, auch die Analyse-Seite) in jedem
+// Ordner des Probanden. Gibt die Anzahl gelöschter Dateien zurück; 0, wenn keine (mehr) da waren.
+export async function loescheAufnahmeDateien(probandOrdner, name) {
+  if (!NAME_MUSTER.test(name)) throw new HttpFehler(404, "Aufnahme nicht gefunden.");
+  let anzahl = 0;
+  for (const ordner of await ordnerMitUnterordnern(probandOrdner)) {
+    for (const datei of await fs.readdir(ordner).catch(() => [])) {
+      if (!datei.startsWith(name + NEBENDATEI_TRENNER)) continue;
+      await fs.rm(path.join(ordner, datei), { force: true });
+      anzahl++;
+    }
+  }
+  return anzahl;
 }
 
 // Namen aller Aufnahmen, für die schon eine Analyse-Seite existiert

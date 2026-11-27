@@ -12,6 +12,7 @@ import { zeigeMessungStart } from "./messungStart.js";
 import { erstelleLiveAnzeige } from "./messungLive.js";
 import { aufnahmenListe } from "./aufnahmenListe.js";
 import { verbindeAnalysen } from "./analyseAktionen.js";
+import { verbindeLoeschen } from "./aufnahmeLoeschen.js";
 
 const ergebnisText = (e) => e.saved
   ? `Messung gespeichert: ${e.recording} · ${dauerText(e.duration_s)} · ${e.cues} Vorgaben` +
@@ -38,6 +39,13 @@ export function zeigeMessung(el, messplanId) {
     m.className = text ? klasse : "";
     m.textContent = text || "";
   };
+  verbindeLoeschen(el.querySelector("#ms-liste"), p, {
+    beiGeloescht: (aufnahmen) => {
+      p.aufnahmen = aufnahmen;
+      zeigeListe();
+    },
+    meldung,
+  });
   let live = null;
   let zustand = { laeuft: false };
   const meine = () => zustand.laeuft && zustand.probandId === p.id;

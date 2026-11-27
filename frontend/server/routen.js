@@ -5,7 +5,7 @@ import { sendeEreignisStrom } from "./ereignisStrom.js";
 import { erstelleAuftrag } from "./messungsAuftrag.js";
 import { istErlaubt } from "./zugriffsSchutz.js";
 import { lanAdressen } from "./netzAdressen.js";
-import { findeAufnahme, vorhandeneAnalysen } from "./aufnahmeDateien.js";
+import { findeAufnahme, vorhandeneAnalysen, loescheAufnahmeDateien } from "./aufnahmeDateien.js";
 
 const SEITEN = ["innen", "oben"];
 // Die Analyse-Seite stammt aus einem Notebook: ohne Skripte und ohne Nachladen aus dem Netz anzeigen
@@ -68,6 +68,14 @@ export function erstelleRouter(speicher, steuerung,
       const id = zugang().probandZu(token);
       await speicher.speichereBild(id, seite, await body(req));
       sendeJson(res, 200, { seite, ok: true });
+    }],
+    // Fehlerhafte Aufnahme löschen: erst die Dateien, dann den Eintrag (schlägt etwas fehl, bleibt der Eintrag)
+    ["DELETE", /^\/api\/probanden\/([^/]+)\/aufnahmen\/([^/]+)$/, async (req, res, id, name) => {
+      const p = await speicher.lade(id);
+      if (!p.aufnahmen.some((a) => a.name === name)) throw new HttpFehler(404, "Aufnahme nicht gefunden.");
+      if (analyse?.laeuftFuer(id, name)) throw new HttpFehler(409, "Die Analyse dieser Messung läuft noch. Bitte warten.");
+      await loescheAufnahmeDateien(speicher.ordnerVon(id), name);
+      sendeJson(res, 200, (await speicher.entferneAufnahme(id, name)).aufnahmen);
     }],
     // Analyse je Aufnahme: das Notebook aus Datenaufbereitung/ mit der CSV dieser Aufnahme
     ["GET", /^\/api\/probanden\/([^/]+)\/analysen$/, async (req, res, id) => {

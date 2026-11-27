@@ -28,6 +28,10 @@ export class AnalyseSteuerung {
     return vorhanden ? { status: STATUS.fertig, hinweis: letztes?.hinweis ?? null } : { status: STATUS.keine };
   }
 
+  laeuftFuer(probandId, name) {
+    return this.#laufend === schluessel(probandId, name);
+  }
+
   starte(probandId, name, dateien) {
     const key = schluessel(probandId, name);
     if (this.#laufend === key) return { status: STATUS.laeuft };

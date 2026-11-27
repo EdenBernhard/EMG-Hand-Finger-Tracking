@@ -11,7 +11,6 @@ import { zeigeMessplanEditor } from "./messplanEditor.js";
 import { zeigeMessungStart } from "./messungStart.js";
 import { erstelleLiveAnzeige } from "./messungLive.js";
 import { aufnahmenListe } from "./aufnahmenListe.js";
-import { zeigeC3dImport } from "./c3dImportKarte.js";
 import { verbindeAnalysen } from "./analyseAktionen.js";
 
 const ergebnisText = (e) => e.saved
@@ -26,8 +25,7 @@ export function zeigeMessung(el, messplanId) {
   p.aufnahmen = Array.isArray(p.aufnahmen) ? p.aufnahmen : [];
   const eintrag = p.messplaene.find((m) => m.id === messplanId) || p.messplaene[0];
 
-  el.innerHTML = `<p id="ms-meldung"></p><div id="ms-haupt"></div><div id="ms-import"></div>
-    <div id="ms-liste"></div>`;
+  el.innerHTML = `<p id="ms-meldung"></p><div id="ms-haupt"></div><div id="ms-liste"></div>`;
   const haupt = el.querySelector("#ms-haupt");
   const zeigeListe = () => {
     const liste = el.querySelector("#ms-liste");
@@ -35,12 +33,6 @@ export function zeigeMessung(el, messplanId) {
     verbindeAnalysen(liste, p);
   };
   zeigeListe();
-  zeigeC3dImport(el.querySelector("#ms-import"), p, {
-    beiImport: (aufnahme) => {
-      p.aufnahmen.push(aufnahme);
-      zeigeListe();
-    },
-  });
   const meldung = (text, klasse = "info") => {
     const m = el.querySelector("#ms-meldung");
     m.className = text ? klasse : "";

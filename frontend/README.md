@@ -23,7 +23,7 @@ Probanden-Daten liegen in `data/probanden/<id>/` im Hauptordner (`proband.json` 
 4. **Foto Innenseite** – hochladen (am Laptop oder [per QR-Code vom Handy](#fotos-mit-dem-handy)), Kreuze und Daumen anklicken
 5. **Foto Oberseite** – hochladen (ebenso), Kreuze anklicken
 6. **Platzierungen** – beliebig viele Berechnungen pro Proband auf Basis derselben Maße und Fotos, jeweils mit eigener Anordnung, eigenem Elektrodenabstand und Notiz. Je Platzierung: Fotos mit Elektrodenpaaren (als PNG herunterladbar), Maßband-Anleitung und Testbewegung je Kanal, druckbar.
-7. **EMG-Messung** – beliebig viele benannte Messpläne pro Proband (Tabs, kopierbar), jeder beliebig oft messbar. Ein Messplan: Bewegungen mit Anzahl (so oft direkt hintereinander, z. B. Pinch 3×), Intervall, Pause nach jeder Bewegung (eigene Vorgabe „Ruhe“), Durchläufe des ganzen Ablaufs, Vorlauf. Neue Messpläne auch aus Vorlagen für alle Probanden: Standard-Messpläne „MVC“ und „Kontinuierlich“ (fest in `public/js/modell/messplanVorlagen.js`) und eigene Vorlagen (aus einem Messplan gespeichert, in `data/messplan_vorlagen.json`). Vor dem Start Elektroden-Platzierung wählen und optional eine Notiz eingeben; beides wird mit der Aufnahme gespeichert. Während der Messung: aktuelle Bewegung groß, Countdown bis zum nächsten Piepton, Vorschau, Stopp. Je Messung „Analysieren“: führt das Notebook aus `Datenaufbereitung/` mit ihrer CSV aus und zeigt das Ergebnis an (README im Hauptordner, „Analyse je Messung“). Darunter Import von C3D-Dateien aus EMG and Motion Tools (werden vom Backend in CSV umgewandelt, siehe README im Hauptordner, „C3D-Dateien … importieren“) und die bisherigen Messungen des Probanden.
+7. **EMG-Messung** – beliebig viele benannte Messpläne pro Proband (Tabs, kopierbar), jeder beliebig oft messbar. Ein Messplan: Bewegungen mit Anzahl (so oft direkt hintereinander, z. B. Pinch 3×), Intervall, Pause nach jeder Bewegung (eigene Vorgabe „Ruhe“), Durchläufe des ganzen Ablaufs, Vorlauf. Neue Messpläne auch aus Vorlagen für alle Probanden: Standard-Messpläne „MVC“ und „Kontinuierlich“ (fest in `public/js/modell/messplanVorlagen.js`) und eigene Vorlagen (aus einem Messplan gespeichert, in `data/messplan_vorlagen.json`). Vor dem Start Elektroden-Platzierung wählen und optional eine Notiz eingeben; beides wird mit der Aufnahme gespeichert. Während der Messung: aktuelle Bewegung groß, Countdown bis zum nächsten Piepton, Vorschau, Stopp. Je Messung „Analysieren“: führt das Notebook aus `Datenaufbereitung/` mit ihrer CSV aus und zeigt das Ergebnis an (README im Hauptordner, „Analyse je Messung“). Darunter die bisherigen Messungen des Probanden.
 
 Den Takt der Messung gibt Python vor (gezählt in Samples, siehe README im Hauptordner, „Messung mit Bewegungsvorgaben“). Der Browser zeigt nur an und piept; deshalb verschieben gedrosselte Browser-Tabs die Labels nicht. Ton erst nach einem Klick: Browser erlauben Audio nur nach einer Nutzeraktion, notfalls erscheint der Knopf „Ton aktivieren“.
 
@@ -57,7 +57,6 @@ frontend/
 │   ├── vorlagenSpeicher.js    Ablage der eigenen Messplan-Vorlagen (für alle Probanden)
 │   ├── messungSteuerung.js    startet/stoppt den Python-Messprozess, hält dessen Zustand
 │   ├── messungsAuftrag.js     Messplan + Platzierung + Notiz aus dem gespeicherten Probanden
-│   ├── c3dImport.js           Upload einer C3D-Datei, Konvertierung durch den Python-Prozess
 │   ├── analyseSteuerung.js    Analyse je Aufnahme (Notebook) starten, Zustand halten
 │   ├── aufnahmeDateien.js     Dateien einer Aufnahme im Probanden- bzw. Platzierungs-Ordner finden
 │   ├── pythonAufruf.js        kurzen Python-Befehl des Backends ausführen, JSON-Ergebnis lesen
@@ -79,7 +78,7 @@ frontend/
 │       ├── ansichten/         je Schritt eine Datei
 │       └── zeichnen/          Canvas: Punkte, Elektroden, Download
 ├── test/                      node:test
-└── testhilfen/                Ersatz für die Python-Prozesse (Messung, C3D-Import) in den Tests
+└── testhilfen/                Ersatz für die Python-Prozesse (Messung, Analyse) in den Tests
 ```
 
 ## Berechnung

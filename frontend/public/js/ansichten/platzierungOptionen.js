@@ -1,4 +1,4 @@
-// <option>-Liste der Elektroden-Platzierungen eines Probanden (für Messung und C3D-Import).
+// <option>-Liste der Elektroden-Platzierungen eines Probanden (für die Messung).
 import { esc } from "../hilfen.js";
 
 export function platzierungOptionen(p, gewaehlt) {

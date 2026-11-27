@@ -29,11 +29,6 @@ export const api = {
   loescheVorlage: (id) => anfrage(`/api/messplan-vorlagen/${id}`, { methode: "DELETE" }),
   // auftrag: { messplanId, platzierungId, notiz }
   starteMessung: (id, auftrag) => anfrage(`/api/probanden/${id}/messung`, { methode: "POST", daten: auftrag }),
-  // C3D-Datei aus EMG and Motion Tools; angaben: { platzierungId, notiz }. Gibt die neue Aufnahme zurück.
-  importiereC3d: (id, datei, { platzierungId, notiz } = {}) => {
-    const frage = new URLSearchParams({ datei: datei.name, platzierungId: platzierungId || "", notiz: notiz || "" });
-    return anfrage(`/api/probanden/${id}/import-c3d?${frage}`, { methode: "POST", datei });
-  },
   // Analyse je Aufnahme (Notebook aus Datenaufbereitung/): Namen mit fertiger Seite, Zustand, Start, Seite
   analysen: (id) => anfrage(`/api/probanden/${id}/analysen`),
   analyseZustand: (id, name) => anfrage(`/api/probanden/${id}/aufnahmen/${name}/analyse`),

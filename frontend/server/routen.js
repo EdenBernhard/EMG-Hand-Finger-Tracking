@@ -2,9 +2,7 @@
 import { HttpFehler, sendeJson, sendeLeer, leseJson } from "./http.js";
 import { sendeDatei, dateiImOrdner } from "./statischeDateien.js";
 import { sendeEreignisStrom } from "./ereignisStrom.js";
-import { erstelleAuftrag, aufnahmeKontext } from "./messungsAuftrag.js";
-import { pruefeDateiname } from "./c3dImport.js";
-import { neueImportAufnahme } from "../public/js/modell/aufnahmen.js";
+import { erstelleAuftrag } from "./messungsAuftrag.js";
 import { istErlaubt } from "./zugriffsSchutz.js";
 import { lanAdressen } from "./netzAdressen.js";
 import { findeAufnahme, vorhandeneAnalysen } from "./aufnahmeDateien.js";
@@ -14,10 +12,10 @@ const SEITEN = ["innen", "oben"];
 const ANALYSE_KOPF = { "Content-Security-Policy":
   "sandbox; default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:" };
 
-// c3dImport, handyZugang, analyse, vorlagen: Instanzen der jeweiligen Klasse; fehlt eine, gibt es die Funktion nicht (404)
+// handyZugang, analyse, vorlagen: Instanzen der jeweiligen Klasse; fehlt eine, gibt es die Funktion nicht (404)
 // adressen: liefert die WLAN-Adressen für die Handy-Links (in Tests ersetzbar)
 export function erstelleRouter(speicher, steuerung,
-  { publicOrdner, maxAnfrageBytes, c3dImport, handyZugang, analyse, vorlagen, adressen = lanAdressen }) {
+  { publicOrdner, maxAnfrageBytes, handyZugang, analyse, vorlagen, adressen = lanAdressen }) {
   const body = (req) => leseJson(req, maxAnfrageBytes);
   const analyseDienst = () => {
     if (!analyse) throw new HttpFehler(404, "Nicht gefunden.");
@@ -53,18 +51,6 @@ export function erstelleRouter(speicher, steuerung,
     ["POST", /^\/api\/probanden\/([^/]+)\/messung$/, async (req, res, id) => {
       const { plan, kontext } = erstelleAuftrag(await speicher.lade(id), await body(req));   // 404/400 vor dem Start
       sendeJson(res, 202, steuerung.starte(id, plan, kontext));
-    }],
-    // Rumpf: die C3D-Datei als Rohdaten; ?datei=<Originalname>&platzierungId=&notiz=
-    ["POST", /^\/api\/probanden\/([^/]+)\/import-c3d$/, async (req, res, id) => {
-      if (!c3dImport) throw new HttpFehler(404, "Nicht gefunden.");
-      const frage = new URL(req.url, "http://x").searchParams;
-      const datei = pruefeDateiname(frage.get("datei"));
-      const kontext = aufnahmeKontext(await speicher.lade(id),   // 404/400 vor dem Upload
-        { platzierungId: frage.get("platzierungId"), notiz: frage.get("notiz") });
-      const ergebnis = await c3dImport.importiere(req, id, datei, kontext);
-      const aufnahme = neueImportAufnahme(ergebnis, datei, kontext);
-      await speicher.ergaenzeAufnahme(id, aufnahme);
-      sendeJson(res, 201, aufnahme);
     }],
     // Handy-Upload der Fotos: Laptop erzeugt den Zugang, das Handy kennt danach nur das Token
     ["POST", /^\/api\/probanden\/([^/]+)\/handy-zugang$/, async (req, res, id) => {

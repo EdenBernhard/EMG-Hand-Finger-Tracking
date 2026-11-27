@@ -5,7 +5,7 @@ import { HttpFehler } from "./http.js";
 
 const MAX_NOTIZ = 500;
 
-// Platzierung und Notiz, wie sie mit einer Aufnahme gespeichert werden (auch für importierte Dateien)
+// Platzierung und Notiz, wie sie mit einer Aufnahme gespeichert werden
 export function aufnahmeKontext(proband, { platzierungId, notiz } = {}) {
   const pl = platzierungId ? proband.platzierungen.find((x) => x.id === platzierungId) : null;
   if (platzierungId && !pl) throw new HttpFehler(400, "Platzierung nicht gefunden.");

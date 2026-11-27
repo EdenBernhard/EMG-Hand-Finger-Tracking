@@ -251,9 +251,7 @@ Eine Bewegung gilt von ihrem `sample_index` bis zum `sample_index` der nächsten
 
 ## C3D-Dateien aus EMG and Motion Tools importieren
 
-Aufnahmen, die direkt mit EMG and Motion Tools gemacht und als `.c3d` gespeichert wurden, lassen sich einem Probanden nachträglich zuordnen: in der Webapp unter **7 · EMG-Messung → C3D-Dateien importieren** eine oder mehrere Dateien wählen, optional Platzierung und Notiz angeben, hochladen. Sie erscheinen danach unter „Bisherige Messungen“ als „C3D-Import“.
-
-Voraussetzung ist das optionale Paket `ezc3d` (im Ordner `backend`): `pip install -e ".[c3d]"`. Der Node-Server speichert den Upload temporär und startet `python -m emg_tracking.acquisition.c3d_import.cli`; ohne Webapp geht das auch direkt:
+Aufnahmen, die direkt mit EMG and Motion Tools gemacht und als `.c3d` gespeichert wurden, lassen sich einem Probanden nachträglich zuordnen. Das geht nur über die Kommandozeile, die Webapp hat keinen Upload mehr (Messungen werden nur noch über die Webapp aufgenommen). Voraussetzung ist das optionale Paket `ezc3d` (im Ordner `backend`): `pip install -e ".[c3d]"`.
 
 ```powershell
 python -m emg_tracking.acquisition.c3d_import.cli --subject <Proband-ID> "D:\Aufnahmen\Testlauf_2.c3d"

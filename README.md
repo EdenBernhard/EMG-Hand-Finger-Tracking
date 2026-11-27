@@ -282,7 +282,7 @@ So bleibt das Notebook unberührt:
 - Die Seite lädt nichts aus dem Internet (MathJax und require.js von nbconvert werden entfernt). Sie wird ohne Skripte ausgeliefert und ist, wie alle Daten, nur vom Laptop selbst abrufbar.
 
 **Was das Notebook auswertet:**
-- Die Sensoren erkennt es selbst: Sensor N gilt als benutzt, wenn `Emg_N` existiert und nicht konstant ist.
+- Die Sensoren erkennt es selbst: Sensor N gilt als benutzt, wenn `Emg_N` existiert, nicht konstant ist und N den Impedanz-Check der Messung bestanden hat (`protocol.json`). Ohne Impedanz-Check muss die EMG-Stärke schwanken: Elektroden ohne Hautkontakt liefern gleichmäßiges Rauschen (Schwelle `MIN_ENVELOPE_DYNAMIC_RATIO`). Nicht benutzte Sensoren fehlen in Auswertung und Diagrammen, das Notebook nennt sie mit Grund.
 - Die echten Bewegungen (für ARI/NMI) kommen aus der `.cues.csv` der Messung, sonst aus dem Dateinamen (eine Bewegung je Aufnahme). Fenster mit schwacher EMG-Aktivität werden als `ruhe` gelabelt.
 
 ---

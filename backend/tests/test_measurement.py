@@ -4,6 +4,8 @@ import csv
 import io
 import json
 import os
+import subprocess
+import sys
 import threading
 from types import SimpleNamespace
 
@@ -127,6 +129,22 @@ def test_event_stream_is_ascii_json_lines():
     EventStream(out).emit("cue", movement="Faust schließen")
     assert out.getvalue() == '{"type": "cue", "movement": "Faust schlie\\u00dfen"}\n'
     assert events_of(out)[0]["movement"] == "Faust schließen"
+
+
+def test_foreign_stdout_output_does_not_break_event_lines():
+    # Echter Prozess: SDK-Ausgaben ohne Zeilenende (print, nativ auf fd 1) landen auf stderr
+    script = (
+        "import os, sys\n"
+        "from emg_tracking.acquisition.measurement.event_output import take_event_output\n"
+        "from emg_tracking.acquisition.measurement.event_stream import EventStream\n"
+        "events = EventStream(take_event_output())\n"
+        "print('SDK sagt', end=''); sys.stdout.flush(); os.write(1, b'nativ ohne Zeilenende')\n"
+        "events.emit('finished', saved=False)\n"
+    )
+    result = subprocess.run([sys.executable, "-c", script], capture_output=True, check=True)
+    assert [json.loads(line) for line in result.stdout.decode("ascii").splitlines()] == [
+        {"type": "finished", "saved": False}]
+    assert b"SDK sagt" in result.stderr and b"nativ ohne Zeilenende" in result.stderr
 
 
 @pytest.mark.parametrize("data", [b'{"command": "stop"}\n', b"kaputt\n{}\n", b""])

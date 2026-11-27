@@ -11,7 +11,7 @@ Aufruf im Ordner ``backend``: ``python -m emg_tracking.acquisition.measurement.c
   ``{"command": "continue"}`` misst nach einem nicht bestandenen Impedanz-Check trotzdem.
 - stdout: ein JSON-Objekt pro Zeile mit ``type`` = ``checking_impedance``, ``impedance``,
   ``waiting_for_sensors``, ``recording``, ``cue``, ``finished`` oder ``error``. Menschenlesbare
-  Meldungen gehen nach stderr.
+  Meldungen und alles, was das SDK selbst ausgibt, gehen nach stderr.
 
 Ist ``[impedance] check_before_measurement`` gesetzt, wird vor der Aufnahme die Impedanz aller
 Sensoren geprüft (``impedance``: ``results`` je Sensor, ``passed``). Besteht ein Sensor nicht, wartet
@@ -38,6 +38,7 @@ from emg_tracking.acquisition.motion_tools_csv import MotionToolsCsvWriter
 from emg_tracking.acquisition.recording_writer import RecordingWriter
 from emg_tracking.acquisition.measurement.cue_csv_writer import CueCsvWriter
 from emg_tracking.acquisition.measurement.cue_schedule import CueSchedule
+from emg_tracking.acquisition.measurement.event_output import take_event_output
 from emg_tracking.acquisition.measurement.event_stream import EventStream
 from emg_tracking.acquisition.measurement.measurement import Measurement
 from emg_tracking.acquisition.measurement.protocol import MeasurementProtocol
@@ -149,7 +150,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     args = parser.parse_args(argv)
 
-    events = EventStream(sys.stdout)
+    events = EventStream(take_event_output())  # vor dem SDK: dessen Ausgaben gehen nach stderr
     # Ungepuffert und als Bytes: Ein gepufferter Reader würde den Stopp-Befehl mit der ersten Zeile
     # vorauslesen, und sein Lock bringt Python beim Beenden zum Absturz, solange der Stopp-Thread
     # noch liest. UTF-8 wird selbst decodiert, sonst gälte die Codepage der Konsole.

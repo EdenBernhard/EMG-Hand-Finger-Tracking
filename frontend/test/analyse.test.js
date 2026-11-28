@@ -46,7 +46,7 @@ async function probandMit(inhalte) {
 async function warteBisFertig(id, name) {
   for (;;) {
     const { daten } = await json(`/api/probanden/${id}/aufnahmen/${name}/analyse`);
-    if (daten.status !== "laeuft") return daten;
+    if (daten.status !== "laeuft" && daten.status !== "wartet") return daten;
     await new Promise((ok) => setTimeout(ok, ABFRAGE_MS));
   }
 }
@@ -70,11 +70,18 @@ test("Analyse läuft, die Seite liegt neben der CSV und wird ohne Skripte ausgel
   assert.match(seite.headers.get("content-security-policy"), /sandbox.*default-src 'none'/);
 });
 
-test("Abbruch im Notebook, Fehler und nur eine Analyse gleichzeitig", async () => {
-  const { id } = await probandMit({ abbruch: "abbruch\n", kaputt: "kaputt\n", zweite: "Time\n" });
+test("Abbruch im Notebook, Fehler, und weitere Analysen warten in der Schlange", async () => {
+  const { id } = await probandMit({ abbruch: "abbruch\n", kaputt: "kaputt\n", zweite: "Time\n", dritte: "Time\n" });
   await json(`/api/probanden/${id}/aufnahmen/abbruch/analyse`, "POST");
-  assert.equal((await json(`/api/probanden/${id}/aufnahmen/zweite/analyse`, "POST")).status, 409);
+  const zweite = await json(`/api/probanden/${id}/aufnahmen/zweite/analyse`, "POST");
+  assert.equal(zweite.status, 202);
+  assert.deepEqual(zweite.daten, { status: "wartet", vorher: 0 });
+  assert.deepEqual((await json(`/api/probanden/${id}/aufnahmen/dritte/analyse`, "POST")).daten, { status: "wartet", vorher: 1 });
+  assert.deepEqual((await json(`/api/probanden/${id}/aufnahmen/zweite/analyse`, "POST")).daten,
+    { status: "wartet", vorher: 0 }, "nochmals starten reiht nicht doppelt ein");
   assert.deepEqual(await warteBisFertig(id, "abbruch"), { status: "fertig", hinweis: "KeyError: 'Emg_5'" });
+  assert.deepEqual(await warteBisFertig(id, "zweite"), { status: "fertig", hinweis: null });
+  assert.deepEqual(await warteBisFertig(id, "dritte"), { status: "fertig", hinweis: null });
 
   await json(`/api/probanden/${id}/aufnahmen/kaputt/analyse`, "POST");
   const fehler = await warteBisFertig(id, "kaputt");
@@ -88,4 +95,15 @@ test("Unbekannte Aufnahmen und Probanden", async () => {
   assert.equal((await json(`/api/probanden/${id}/aufnahmen/gibtsnicht/analyse`, "POST")).status, 404);
   assert.equal((await json(`/api/probanden/${id}/aufnahmen/..%2F..%2Fproband/analyse`)).status, 404);
   assert.equal((await json("/api/probanden/0123456789ab/analysen")).status, 404);
+});
+
+test("Mit gleichzeitig: 2 laufen zwei Analysen parallel, die dritte wartet", async () => {
+  const parallel = new AnalyseSteuerung({ programm: process.execPath, argumente: [path.resolve("testhilfen", "fakeAnalyse.mjs")],
+    arbeitsordner: path.resolve("."), zeitlimitMs: 10_000, gleichzeitig: 2 });
+  const { unterordner } = await probandMit({ a: "Time\n", b: "Time\n", c: "Time\n" });
+  const dateien = (n) => ({ csv: path.join(unterordner, `${n}.csv`), analyse: path.join(unterordner, `${n}.analyse.html`) });
+  assert.deepEqual(["a", "b", "c"].map((n) => parallel.starte("p", n, dateien(n)).status), ["laeuft", "laeuft", "wartet"]);
+  assert.ok(parallel.istAktiv("p", "c"));
+  while (parallel.istAktiv("p", "c")) await new Promise((ok) => setTimeout(ok, ABFRAGE_MS));
+  for (const n of ["a", "b", "c"]) await fs.access(dateien(n).analyse);
 });

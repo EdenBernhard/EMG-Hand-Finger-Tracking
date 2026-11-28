@@ -73,7 +73,7 @@ export function erstelleRouter(speicher, steuerung,
     ["DELETE", /^\/api\/probanden\/([^/]+)\/aufnahmen\/([^/]+)$/, async (req, res, id, name) => {
       const p = await speicher.lade(id);
       if (!p.aufnahmen.some((a) => a.name === name)) throw new HttpFehler(404, "Aufnahme nicht gefunden.");
-      if (analyse?.laeuftFuer(id, name)) throw new HttpFehler(409, "Die Analyse dieser Messung läuft noch. Bitte warten.");
+      if (analyse?.istAktiv(id, name)) throw new HttpFehler(409, "Die Analyse dieser Messung läuft oder wartet noch. Bitte warten.");
       await loescheAufnahmeDateien(speicher.ordnerVon(id), name);
       sendeJson(res, 200, (await speicher.entferneAufnahme(id, name)).aufnahmen);
     }],
